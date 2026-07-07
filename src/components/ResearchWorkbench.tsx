@@ -132,6 +132,15 @@ const csvEscape = (value: string | number | null | undefined) => {
 const csvNumber = (value: number | null | undefined) =>
   value === null || value === undefined || Number.isNaN(value) ? "" : value.toFixed(3);
 
+const formatMoveLegs = (
+  move: { shortDeltaBps: number; longDeltaBps: number } | null | undefined,
+  shortKey: string,
+  longKey: string
+) => {
+  if (!move) return "n/a";
+  return `${shortKey} ${formatBps(move.shortDeltaBps)} / ${longKey} ${formatBps(move.longDeltaBps)}`;
+};
+
 export function ResearchWorkbench() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const [shouldLoadHistory, setShouldLoadHistory] = useState(false);
@@ -179,7 +188,14 @@ export function ResearchWorkbench() {
   }, [range.end, range.start]);
 
   const stats = useMemo(() => buildStats(selectedRows), [selectedRows]);
-  const curveMovement = useMemo(() => (data?.rows.length ? buildCurveMovementAnalysis(data.rows) : null), [data?.rows]);
+  const curveMovement = useMemo(
+    () => (selectedRows.length ? buildCurveMovementAnalysis(selectedRows) : null),
+    [selectedRows]
+  );
+  const currentCurveMovement = useMemo(
+    () => (data?.rows.length ? buildCurveMovementAnalysis(data.rows) : null),
+    [data?.rows]
+  );
 
   const selectedSpreadMeta = data?.spreads.find((spread) => spread.key === selectedSpread);
 
@@ -249,6 +265,7 @@ export function ResearchWorkbench() {
   const hasSelectedRows = selectedRows.length > 0;
   const dominantWeeklyMove = curveMovement?.dominantWeekly?.weekly;
   const dominantMonthlyMove = curveMovement?.dominantMonthly?.monthly;
+  const currentYearEndScenario = currentCurveMovement?.yearEndScenario;
 
   return (
     <section className="research-shell" ref={sectionRef}>
@@ -322,7 +339,7 @@ export function ResearchWorkbench() {
               <h3>Steepening, Flattening, and Parallel Shift Analysis</h3>
             </div>
             <span className="panel__meta">
-              Latest complete curve {curveMovement.latestDate ? formatDate(curveMovement.latestDate) : "n/a"}
+              Range-end complete curve {curveMovement.latestDate ? formatDate(curveMovement.latestDate) : "n/a"}
             </span>
           </div>
 
@@ -344,9 +361,9 @@ export function ResearchWorkbench() {
               </small>
             </div>
             <div className="curve-movement-card curve-movement-card--scenario">
-              <span>{curveMovement.yearEndScenario.confidence} confidence scenario</span>
-              <strong>{curveMovement.yearEndScenario.title}</strong>
-              <small>{curveMovement.yearEndScenario.description}</small>
+              <span>{currentYearEndScenario?.confidence ?? "Low"} confidence current scenario</span>
+              <strong>{currentYearEndScenario?.title ?? "Year-end scenario unavailable"}</strong>
+              <small>{currentYearEndScenario?.description ?? "Current curve data is not sufficient to form a year-end scenario."}</small>
             </div>
           </div>
 
@@ -356,8 +373,10 @@ export function ResearchWorkbench() {
                 <tr>
                   <th>Segment</th>
                   <th>Current spread</th>
+                  <th>1W tenor Δ</th>
                   <th>1W spread Δ</th>
                   <th>1W type</th>
+                  <th>1M tenor Δ</th>
                   <th>1M spread Δ</th>
                   <th>1M type</th>
                   <th>Economic read</th>
@@ -368,10 +387,12 @@ export function ResearchWorkbench() {
                   <tr key={row.pair.key}>
                     <th>{row.pair.label}</th>
                     <td>{formatSpreadLevel(row.currentSpreadBps)}</td>
+                    <td>{formatMoveLegs(row.weekly, row.pair.shortKey, row.pair.longKey)}</td>
                     <td>{formatBps(row.weekly?.spreadDeltaBps)}</td>
                     <td>
                       <span className={curveMoveBadgeClass(row.weekly?.type)}>{row.weekly?.type ?? "n/a"}</span>
                     </td>
+                    <td>{formatMoveLegs(row.monthly, row.pair.shortKey, row.pair.longKey)}</td>
                     <td>{formatBps(row.monthly?.spreadDeltaBps)}</td>
                     <td>
                       <span className={curveMoveBadgeClass(row.monthly?.type)}>{row.monthly?.type ?? "n/a"}</span>
@@ -385,7 +406,8 @@ export function ResearchWorkbench() {
 
           <div className="source-footnote source-footnote--inline">
             <span>Six curve segments use all pair combinations from 2Y, 5Y, 10Y, and 30Y Treasury yields.</span>
-            <span>{curveMovement.yearEndScenario.caveat}</span>
+            <span>Weekly and monthly classifications are computed as of the selected range-end date.</span>
+            <span>{currentYearEndScenario?.caveat ?? "Scenario analysis only; this is not a point forecast or investment recommendation."}</span>
           </div>
         </article>
       ) : null}

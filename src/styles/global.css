@@ -922,7 +922,7 @@ h3 {
 
 .curve-movement-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1320px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
@@ -958,7 +958,7 @@ h3 {
 }
 
 .curve-movement-table td:last-child {
-  width: 34%;
+  width: 30%;
   min-width: 360px;
   color: var(--muted);
   line-height: 1.45;
@@ -1196,8 +1196,8 @@ h3 {
 }
 
 .source-footnote--inline {
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 5px;
 }
 
 .spin {

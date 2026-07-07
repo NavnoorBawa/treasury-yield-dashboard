@@ -396,11 +396,17 @@ const buildYearEndScenario = (pairs: CurvePairAnalysis[], latestDate: string | n
   const broadSteepening = monthly10Y2Y > 5 && frontEndConfirmation > 0;
   const broadFlattening = monthly10Y2Y < -5 && frontEndConfirmation < 0;
   const longEndSteepening = longEndConfirmation > 5;
+  const displayDate = latestDate ? new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(isoToDate(latestDate)) : "the latest observation";
 
   if (broadSteepening && current10Y2Y < 0) {
     return {
       title: "Year-end scenario: de-inversion / gradual steepening bias",
-      description: `As of ${latestDate ?? "the latest observation"}, 10Y-2Y is ${current10Y2Y.toFixed(
+      description: `As of ${displayDate}, 10Y-2Y is ${current10Y2Y.toFixed(
         1
       )} bps and has steepened ${monthly10Y2Y.toFixed(
         1
