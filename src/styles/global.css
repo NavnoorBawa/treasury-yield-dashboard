@@ -909,6 +909,10 @@ h3 {
   font-size: 13px;
 }
 
+.empty-state--research {
+  margin-top: 14px;
+}
+
 .stats-panel {
   margin-top: 16px;
 }

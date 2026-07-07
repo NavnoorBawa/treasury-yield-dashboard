@@ -33,6 +33,8 @@ This gives reliable long-run daily history back to the earliest available H.15 o
 - Selected-period statistics: latest, min, max, average, annualized daily-change volatility, 1M/3M/1Y changes, percentile rank, and observation count.
 - Light and dark themes for presentation use.
 
+Historical charts use observed business-day data only. Weekends, federal market holidays, and source-level `ND` observations are not imputed. Missing 30Y observations during the Treasury discontinuation/reintroduction period are preserved as nulls rather than forward-filled.
+
 ## Quick Start
 
 ```bash
@@ -57,6 +59,7 @@ Open <http://localhost:4174>. In production, Express serves both `/api/yields` a
 - `npm run build`: type-check and create the production frontend bundle.
 - `npm start`: run the production Express server.
 - `npm run preview`: preview only the Vite build.
+- `npm run verify:data`: fetch official sources and assert current values, history coverage, latest-source merge, and spread calculations.
 
 ## Configuration
 
@@ -130,7 +133,7 @@ Production URL:
 https://treasury-yield-dashboard.vercel.app
 ```
 
-You can also use any Node 20+ host that can run an Express server.
+You can also use any Node 22 host that can run an Express server.
 
 Recommended settings for Render, Railway, Fly.io, or similar:
 

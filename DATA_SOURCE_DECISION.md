@@ -81,3 +81,7 @@ This makes H.15 DDP the best official free historical feed for macro-regime anal
 Keep Treasury XML as the primary current-data source and Federal Reserve H.15 DDP as the primary historical research source.
 
 For a larger production system, FRED should be added as a secondary validation/citation source, not as the primary feed. The dashboard can display a source badge and optionally warn if Treasury, H.15, and FRED diverge after all sources have updated.
+
+## Event Marker Policy
+
+Event markers are not used as data inputs. They are contextual annotations for visual regime analysis. Dates were selected as widely recognized market or policy reference points, such as FOMC decision dates, market peaks/lows, crisis onset dates, or official policy-announcement dates. Descriptions are intentionally neutral and avoid claiming a single-cause relationship between the event and yield movements.

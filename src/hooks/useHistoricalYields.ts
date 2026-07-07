@@ -19,13 +19,13 @@ const fetchHistoricalYields = async (): Promise<HistoricalPayload> => {
   return payload;
 };
 
-export function useHistoricalYields() {
+export function useHistoricalYields(enabled = true) {
   return useQuery({
     queryKey: ["historical-treasury-yields"],
     queryFn: fetchHistoricalYields,
+    enabled,
     refetchInterval: REFRESH_INTERVAL_MS,
     refetchOnWindowFocus: false,
     staleTime: 20 * 60 * 1000
   });
 }
-

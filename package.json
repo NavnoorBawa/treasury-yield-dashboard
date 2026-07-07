@@ -8,6 +8,7 @@
     "client": "vite --host 0.0.0.0",
     "server": "node --watch server/index.js",
     "build": "tsc -b && vite build",
+    "verify:data": "node scripts/verify-data.mjs",
     "start": "NODE_ENV=production node server/index.js",
     "preview": "vite preview --host 0.0.0.0"
   },
@@ -34,6 +35,6 @@
     "vite": "^6.0.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "22.x"
   }
 }

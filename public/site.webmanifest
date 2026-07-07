@@ -1,0 +1,17 @@
+{
+  "name": "U.S. Treasury Yield Dashboard",
+  "short_name": "Treasury Yields",
+  "description": "Institutional U.S. Treasury yield dashboard with current CMT rates, H.15 history, spreads, and macro event analysis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f3",
+  "theme_color": "#f5f6f3",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml"
+    }
+  ]
+}
+
