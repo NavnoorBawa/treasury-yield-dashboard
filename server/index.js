@@ -34,6 +34,9 @@ app.use(
       }
     },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: {
+      policy: "cross-origin"
+    },
     frameguard: {
       action: "deny"
     },
