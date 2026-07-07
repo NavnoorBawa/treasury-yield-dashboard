@@ -77,7 +77,7 @@ export function YieldCurveChart({ data }: YieldCurveChartProps) {
               strokeWidth={2.6}
               dot={<CurveDot />}
               activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--surface)", fill: "var(--chart-curve)" }}
-              isAnimationActive
+              isAnimationActive={false}
             />
           </ComposedChart>
         </ResponsiveContainer>

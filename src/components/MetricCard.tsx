@@ -9,9 +9,10 @@ interface MetricCardProps {
 export function MetricCard({ point }: MetricCardProps) {
   const direction = point.changeBps > 0 ? "up" : point.changeBps < 0 ? "down" : "flat";
   const Icon = direction === "up" ? ArrowUpRight : direction === "down" ? ArrowDownRight : ArrowRight;
+  const maturityClass = `metric-card--${point.key.toLowerCase()}`;
 
   return (
-    <article className="metric-card">
+    <article className={`metric-card ${maturityClass}`}>
       <div className="metric-card__topline">
         <span>{point.shortLabel} CMT</span>
         <span className="metric-card__tenor">{point.label}</span>
@@ -25,4 +26,3 @@ export function MetricCard({ point }: MetricCardProps) {
     </article>
   );
 }
-

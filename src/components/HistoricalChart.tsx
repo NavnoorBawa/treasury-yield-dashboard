@@ -76,7 +76,7 @@ export function HistoricalChart({ maturityKey, summary, data }: HistoricalChartP
               fill={`url(#${gradientId})`}
               dot={false}
               activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--surface)", fill: color }}
-              isAnimationActive
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -84,4 +84,3 @@ export function HistoricalChart({ maturityKey, summary, data }: HistoricalChartP
     </article>
   );
 }
-
