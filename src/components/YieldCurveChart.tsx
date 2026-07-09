@@ -8,11 +8,12 @@ import {
   YAxis
 } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
-import { formatYield } from "../lib/format";
+import { formatDate, formatYield } from "../lib/format";
 import type { CurvePoint } from "../types";
 
 interface YieldCurveChartProps {
   data: CurvePoint[];
+  recordDate: string;
 }
 
 interface CurveDotProps {
@@ -38,7 +39,7 @@ function CurveDot({ cx, cy, payload }: CurveDotProps) {
   );
 }
 
-export function YieldCurveChart({ data }: YieldCurveChartProps) {
+export function YieldCurveChart({ data, recordDate }: YieldCurveChartProps) {
   const highlighted = data.filter((point) => point.highlighted);
 
   return (
@@ -48,7 +49,7 @@ export function YieldCurveChart({ data }: YieldCurveChartProps) {
           <p className="eyebrow">Curve</p>
           <h2>U.S. Treasury Yield Curve</h2>
         </div>
-        <span className="panel__meta">Official CMT par yields</span>
+        <span className="panel__meta">As of {formatDate(recordDate)} · Official CMT par yields</span>
       </div>
       <div className="curve-chart">
         <ResponsiveContainer width="100%" height="100%">

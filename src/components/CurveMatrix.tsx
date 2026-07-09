@@ -13,10 +13,10 @@ export function CurveMatrix({ data }: CurveMatrixProps) {
     <aside className="panel panel--curve-matrix">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">Curve matrix</p>
+          <p className="eyebrow">Curve matrix · D/D changes</p>
           <h2>Core Curve Spreads</h2>
         </div>
-        <span className="panel__meta">All 6 pair combinations</span>
+        <span className="panel__meta">All 6 2Y/5Y/10Y/30Y pairs</span>
       </div>
 
       <div className="curve-matrix" aria-label="Current Treasury curve spreads">
@@ -30,7 +30,7 @@ export function CurveMatrix({ data }: CurveMatrixProps) {
               <strong>{spread.valueBps.toFixed(1)} bps</strong>
               <small className={`curve-matrix__change curve-matrix__change--${move}`}>
                 <Icon size={13} aria-hidden="true" />
-                {formatBps(spread.changeBps)}
+                D/D {formatBps(spread.changeBps)}
               </small>
             </div>
           );
@@ -40,7 +40,7 @@ export function CurveMatrix({ data }: CurveMatrixProps) {
       <div className="curve-matrix__source">
         <span>
           <Database size={14} aria-hidden="true" />
-          Record {formatDate(data.source.recordDate)}
+          Record {formatDate(data.source.recordDate)} · Prior {formatDate(data.source.previousRecordDate)}
         </span>
         <span>
           <TimerReset size={14} aria-hidden="true" />

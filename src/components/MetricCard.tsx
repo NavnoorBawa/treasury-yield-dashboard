@@ -1,12 +1,13 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
-import { formatBps, formatPct, formatYield } from "../lib/format";
+import { formatBps, formatDate, formatPct, formatYield } from "../lib/format";
 import type { SummaryPoint } from "../types";
 
 interface MetricCardProps {
   point: SummaryPoint;
+  previousRecordDate: string;
 }
 
-export function MetricCard({ point }: MetricCardProps) {
+export function MetricCard({ point, previousRecordDate }: MetricCardProps) {
   const direction = point.changeBps > 0 ? "up" : point.changeBps < 0 ? "down" : "flat";
   const Icon = direction === "up" ? ArrowUpRight : direction === "down" ? ArrowDownRight : ArrowRight;
   const maturityClass = `metric-card--${point.key.toLowerCase()}`;
@@ -22,6 +23,7 @@ export function MetricCard({ point }: MetricCardProps) {
         <Icon size={16} strokeWidth={2.2} aria-hidden="true" />
         <span>{formatBps(point.changeBps)}</span>
         <span className="metric-card__change-pct">{formatPct(point.changePct)}</span>
+        <small className="metric-card__change-context">vs {formatDate(previousRecordDate)} Treasury record</small>
       </div>
     </article>
   );

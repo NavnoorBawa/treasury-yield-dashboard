@@ -58,7 +58,7 @@ function App() {
       <section className="metric-grid" aria-label="Current Treasury yields">
         {isLoading
           ? Array.from({ length: 4 }).map((_, index) => <LoadingBlock key={index} className="metric-card" rows={3} />)
-          : data?.summary.map((point) => <MetricCard key={point.key} point={point} />)}
+          : data?.summary.map((point) => <MetricCard key={point.key} point={point} previousRecordDate={data.source.previousRecordDate} />)}
       </section>
 
       <ResearchWorkbench currentData={data} currentLoading={isLoading || isFetching} />

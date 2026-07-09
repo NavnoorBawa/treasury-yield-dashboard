@@ -14,6 +14,7 @@ import { formatBps, formatDate, formatShortDate } from "../lib/format";
 import {
   buildCurveMoveForDates,
   buildCurveRegimeTimeline,
+  curveMoveShapeToleranceBps,
   curveMoveTypes,
   type CurveMoveHorizon,
   type CurveMoveType,
@@ -78,8 +79,8 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
     [endDate, horizon, pair, rows, startDate]
   );
   const rangeMove = useMemo(
-    () => buildCurveMoveForDates(rows, pair, endDate, startDate),
-    [endDate, pair, rows, startDate]
+    () => buildCurveMoveForDates(rows, pair, endDate, startDate, curveMoveShapeToleranceBps[horizon]),
+    [endDate, horizon, pair, rows, startDate]
   );
   const bands = useMemo<RegimeBand[]>(() => {
     const result: RegimeBand[] = [];
@@ -113,9 +114,9 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
 
       <div className="regime-summary">
         <div>
-          <span>Selected-window move</span>
+          <span>Net range change</span>
           <strong>{rangeMove?.type ?? "Insufficient data"}</strong>
-          <small>{rangeMove ? `${formatBps(rangeMove.spreadDeltaBps)} spread change from ${formatShortDate(rangeMove.comparisonDate)}` : "Select a wider date range"}</small>
+          <small>{rangeMove ? `${formatBps(rangeMove.spreadDeltaBps)} slope change from ${formatShortDate(rangeMove.comparisonDate)}` : "Select a wider date range"}</small>
         </div>
         <div>
           <span>Range-end spread</span>
@@ -166,7 +167,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
       <div className="spread-note">
         <Info size={15} aria-hidden="true" />
         <span>
-          Color bands classify the selected pair using its spread change and average yield-level change. A move of 3 bps or less in spread is treated as parallel; otherwise the chart assigns bull/bear steepening or flattening.
+          This is a two-tenor classification, not a statement about every point on the full curve. The selected pair is called near-parallel when its slope change is within {curveMoveShapeToleranceBps[horizon]} bps; otherwise the bands assign bull/bear steepening or flattening from the signs of slope and average yield-level changes. It is descriptive, not a causal attribution or forecast.
         </span>
       </div>
     </article>

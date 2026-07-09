@@ -187,7 +187,11 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
     return eventsInRange(range.start, range.end);
   }, [range.end, range.start]);
 
-  const stats = useMemo(() => buildStats(selectedRows), [selectedRows]);
+  const statsReferenceRows = useMemo(() => {
+    if (!data?.rows.length || !range.end) return selectedRows;
+    return data.rows.filter((row) => row.date <= range.end);
+  }, [data?.rows, range.end, selectedRows]);
+  const stats = useMemo(() => buildStats(selectedRows, statsReferenceRows), [selectedRows, statsReferenceRows]);
 
   const selectedSpreadMeta = data?.spreads.find((spread) => spread.key === selectedSpread);
   const selectedPair = curvePairs.find((pair) => pair.key === selectedPairKey) ?? curvePairs[1];
@@ -359,7 +363,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
       <div className="section-header section-header--compact">
         <div>
           <p className="eyebrow">Event study</p>
-          <h2>Macro Event Markers</h2>
+          <h2>Macro and Methodology Markers</h2>
         </div>
         <span>{visibleEvents.length} events in selected window</span>
       </div>
@@ -384,11 +388,11 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
           <p className="eyebrow">Selected-period analytics</p>
           <h3>Yield Statistics and Momentum</h3>
         </div>
-        <span className="panel__meta">Latest row {selectedRows.at(-1) ? formatDate(selectedRows.at(-1)?.date) : "n/a"} · Retrieved {formatTimestamp(data?.source.retrievedAt)}</span>
+        <span className="panel__meta">Window end {range.end ? formatDate(range.end) : "n/a"} · Retrieved {formatTimestamp(data?.source.retrievedAt)}</span>
       </div>
       <div className="stats-table-wrap">
         <table className="stats-table">
-          <thead><tr><th>Maturity</th><th>Latest</th><th>Min</th><th>Max</th><th>Average</th><th>Ann. vol</th><th>1M Δ</th><th>3M Δ</th><th>1Y Δ</th><th>Percentile</th></tr></thead>
+          <thead><tr><th>Maturity</th><th>Latest</th><th>Min</th><th>Max</th><th>Average</th><th>Ann. vol</th><th>1M Δ</th><th>3M Δ</th><th>1Y Δ</th><th>Empirical pct.</th></tr></thead>
           <tbody>
             {stats.map((row) => (
               <tr key={row.key}>
@@ -403,6 +407,8 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
         <span>{data?.source.supplementalSource}</span>
         <span>{data?.source.note}</span>
         <span>Observed business days only. Weekend, federal-market-holiday, and source `ND` values are not imputed.</span>
+        <span>Min, max, average, volatility, and empirical percentile use the selected range. 1M, 3M, and 1Y changes use the nearest valid observation on or before each calendar lookback, even when it predates the visible range.</span>
+        <span>Annualized volatility is the sample standard deviation of business-day yield changes multiplied by sqrt(252).</span>
       </div>
     </article>
   );
@@ -433,7 +439,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
       {activeTab === "snapshot" ? (
         <div id="workspace-panel-snapshot" role="tabpanel" aria-labelledby="workspace-tab-snapshot" className="workspace-panel workspace-panel--snapshot">
           <div className="dashboard-grid dashboard-grid--workspace">
-            {currentData ? <YieldCurveChart data={currentData.curve} /> : <LoadingBlock className="panel panel--curve" rows={6} />}
+            {currentData ? <YieldCurveChart data={currentData.curve} recordDate={currentData.source.recordDate} /> : <LoadingBlock className="panel panel--curve" rows={6} />}
             {currentData ? <CurveMatrix data={currentData} /> : <LoadingBlock className="panel panel--curve-matrix" rows={6} />}
           </div>
           <div className="workspace-source-strip">

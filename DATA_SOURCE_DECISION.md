@@ -32,6 +32,8 @@ The Treasury documentation says the feed accepts GET requests, returns XML respo
 https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=YYYY
 ```
 
+Treasury moved from the quasi-cubic Hermite method to a monotone-convex curve method on December 6, 2021. Both sets of published CMT rates are official, but the historical workspace exposes this as a methodology marker so a user does not mistake it for a macro regime change.
+
 ### 2. FRED / St. Louis Fed
 
 Reliable secondary reference and excellent academic citation source.
@@ -72,6 +74,8 @@ The H.15 Treasury Constant Maturities package provides materially longer history
 - 30Y: daily observations from `1977-02-15`, with the known 30Y discontinuation/reintroduction gap preserved as missing values.
 
 This makes H.15 DDP the best official free historical feed for macro-regime analysis, while Treasury XML remains the best latest-current feed.
+
+The dashboard intentionally does not fill the 2002-06 30Y discontinuity using Treasury's 20Y adjustment factor. That could be useful for a separate modelled proxy, but it is not the official 30Y CMT series and would contaminate direct 2Y/5Y/10Y/30Y curve comparisons.
 
 ## Recommendation
 

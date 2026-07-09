@@ -364,6 +364,7 @@ h3 {
 .metric-card__change {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   margin-top: 12px;
   color: var(--muted);
@@ -382,6 +383,14 @@ h3 {
 .metric-card__change-pct {
   color: var(--subtle);
   font-weight: 560;
+}
+
+.metric-card__change-context {
+  flex-basis: 100%;
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 560;
+  line-height: 1.15;
 }
 
 .dashboard-grid {
@@ -846,6 +855,10 @@ h3 {
 
 .event-card--recession {
   --event-accent: var(--series-3m);
+}
+
+.event-card--methodology {
+  --event-accent: var(--comparison-reference);
 }
 
 .empty-state {

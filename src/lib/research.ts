@@ -5,7 +5,7 @@ export type RangePreset = "1Y" | "5Y" | "10Y" | "20Y" | "MAX" | "CUSTOM";
 export interface MacroEvent {
   id: string;
   title: string;
-  category: "Crisis" | "Policy" | "Geopolitical" | "Recession" | "Market";
+  category: "Crisis" | "Policy" | "Geopolitical" | "Recession" | "Market" | "Methodology";
   startDate: string;
   endDate?: string;
   description: string;
@@ -36,6 +36,13 @@ export const curveMoveTypes: CurveMoveType[] = [
 
 export type CurveMoveHorizon = "1W" | "1M";
 
+// CMT yields are published to one decimal basis point. A slightly wider monthly
+// tolerance avoids calling a trivial slope move a directional steepener/flattener.
+export const curveMoveShapeToleranceBps: Record<CurveMoveHorizon, number> = {
+  "1W": 3,
+  "1M": 5
+};
+
 export interface CurvePair {
   key: CoreCurveSpreadKey;
   label: string;
@@ -50,6 +57,7 @@ export interface CurveMove {
   longDeltaBps: number;
   spreadDeltaBps: number;
   levelDeltaBps: number;
+  shapeToleranceBps: number;
   type: CurveMoveType;
   rationale: string;
 }
@@ -60,6 +68,7 @@ export interface CurveRegimePoint {
   spreadBps: number;
   spreadDeltaBps: number;
   levelDeltaBps: number;
+  shapeToleranceBps: number;
   type: CurveMoveType;
 }
 
@@ -157,7 +166,7 @@ export const macroEvents: MacroEvent[] = [
     category: "Policy",
     startDate: "2015-12-16",
     endDate: "2018-12-19",
-    description: "Post-GFC normalization cycle and curve flattening."
+    description: "Post-GFC policy-normalization cycle from the first December 2015 increase through the December 2018 decision."
   },
   {
     id: "tariffs-2018",
@@ -165,7 +174,7 @@ export const macroEvents: MacroEvent[] = [
     category: "Geopolitical",
     startDate: "2018-03-22",
     endDate: "2019-08-01",
-    description: "Trade-war escalation and growth-risk repricing."
+    description: "Trade-policy escalation and reassessment of growth and inflation risks."
   },
   {
     id: "repo-2019",
@@ -183,11 +192,18 @@ export const macroEvents: MacroEvent[] = [
     description: "Pandemic risk-off, emergency Fed cuts, QE, and fiscal response."
   },
   {
+    id: "treasury-methodology-2021",
+    title: "Treasury curve-method change",
+    category: "Methodology",
+    startDate: "2021-12-06",
+    description: "Treasury began its monotone-convex method. Earlier quasi-cubic Hermite rates remain official, but long-run comparisons should recognize the methodology regime."
+  },
+  {
     id: "russia-ukraine",
     title: "Russia-Ukraine war",
     category: "Geopolitical",
     startDate: "2022-02-24",
-    description: "Energy/inflation shock and geopolitical risk premium."
+    description: "Russia's invasion of Ukraine and subsequent energy, inflation, and geopolitical-risk repricing."
   },
   {
     id: "fed-2022",
@@ -195,7 +211,7 @@ export const macroEvents: MacroEvent[] = [
     category: "Policy",
     startDate: "2022-03-16",
     endDate: "2023-07-26",
-    description: "Fastest modern tightening cycle against post-pandemic inflation."
+    description: "FOMC tightening from a 0%-0.25% target range in March 2022 to 5.25%-5.50% in July 2023."
   },
   {
     id: "svb",
@@ -210,7 +226,7 @@ export const macroEvents: MacroEvent[] = [
     title: "2025 tariff announcements",
     category: "Geopolitical",
     startDate: "2025-04-02",
-    description: "Renewed tariff-risk repricing and inflation/growth uncertainty."
+    description: "April 2 trade-policy announcement and subsequent inflation, growth, and policy uncertainty."
   }
 ];
 
@@ -259,8 +275,11 @@ export const getPresetRange = (preset: Exclude<RangePreset, "CUSTOM">, rows: His
   if (preset === "MAX") return { start: first, end: last };
 
   const years = Number(preset.replace("Y", ""));
+  const targetStart = toIsoDate(addYears(isoToDate(last), -years));
+  const start = rows.find((row) => row.date >= targetStart)?.date ?? first;
+
   return {
-    start: toIsoDate(addYears(isoToDate(last), -years)),
+    start,
     end: last
   };
 };
@@ -268,13 +287,14 @@ export const getPresetRange = (preset: Exclude<RangePreset, "CUSTOM">, rows: His
 export const getEventFocusRange = (event: MacroEvent, rows: HistoricalRow[]) => {
   const first = rows[0]?.date ?? event.startDate;
   const last = rows.at(-1)?.date ?? event.endDate ?? event.startDate;
-  const start = toIsoDate(addMonths(isoToDate(event.startDate), -12));
-  const end = toIsoDate(addMonths(isoToDate(event.endDate ?? event.startDate), 18));
+  const targetStart = toIsoDate(addMonths(isoToDate(event.startDate), -12));
+  const targetEnd = toIsoDate(addMonths(isoToDate(event.endDate ?? event.startDate), 18));
+  const boundedStart = targetStart < first ? first : targetStart;
+  const boundedEnd = targetEnd > last ? last : targetEnd;
+  const start = rows.find((row) => row.date >= boundedStart)?.date ?? first;
+  const end = [...rows].reverse().find((row) => row.date <= boundedEnd)?.date ?? last;
 
-  return {
-    start: start < first ? first : start,
-    end: end > last ? last : end
-  };
+  return { start, end };
 };
 
 export const filterRowsByRange = (rows: HistoricalRow[], start: string, end: string) =>
@@ -285,8 +305,6 @@ export const eventsInRange = (start: string, end: string) =>
     const eventEnd = event.endDate ?? event.startDate;
     return event.startDate <= end && eventEnd >= start;
   });
-
-const spreadChangeThresholdBps = 3;
 
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -303,8 +321,12 @@ export const currentSpreadForPair = (row: HistoricalRow, pair: CurvePair) => {
   return isNumber(longYield) && isNumber(shortYield) ? (longYield - shortYield) * 100 : null;
 };
 
-export const classifyCurveMove = (spreadDeltaBps: number, levelDeltaBps: number): CurveMoveType => {
-  if (Math.abs(spreadDeltaBps) <= spreadChangeThresholdBps) {
+export const classifyCurveMove = (
+  spreadDeltaBps: number,
+  levelDeltaBps: number,
+  shapeToleranceBps = curveMoveShapeToleranceBps["1W"]
+): CurveMoveType => {
+  if (Math.abs(spreadDeltaBps) <= shapeToleranceBps) {
     return levelDeltaBps >= 0 ? "Parallel shift higher" : "Parallel shift lower";
   }
 
@@ -320,17 +342,17 @@ export const movementRationale = (type: CurveMoveType, pair: CurvePair) => {
 
   switch (type) {
     case "Bear steepening":
-      return `${segment} steepened because the long tenor rose relative to the front tenor. This usually points to inflation, term-premium, duration-supply, or long-run policy repricing pressure.`;
+      return `${segment} steepened while the pair's average yield level rose. This is consistent with more upward repricing at the long tenor than the front tenor, but does not identify a single economic cause.`;
     case "Bull steepening":
-      return `${segment} steepened while the average yield level fell. This usually points to front-end rallying faster as policy-cut or growth-risk expectations move lower.`;
+      return `${segment} steepened while the pair's average yield level fell. This is consistent with the front tenor rallying faster, but does not identify a single economic cause.`;
     case "Bear flattening":
-      return `${segment} flattened while the average yield level rose. This usually points to the front tenor selling off more as near-term policy expectations tighten.`;
+      return `${segment} flattened while the pair's average yield level rose. This is consistent with more upward repricing at the front tenor, but does not identify a single economic cause.`;
     case "Bull flattening":
-      return `${segment} flattened while the average yield level fell. This usually points to stronger long-end demand, lower long-run growth/inflation expectations, or risk-off duration buying.`;
+      return `${segment} flattened while the pair's average yield level fell. This is consistent with the long tenor rallying faster, but does not identify a single economic cause.`;
     case "Parallel shift higher":
-      return `${segment} moved mostly in parallel with yields higher. Curve shape changed little; the main signal is a broad upward repricing in rates.`;
+      return `${segment} moved near-parallel with yields higher. The pair's slope change remained inside the stated classification tolerance.`;
     case "Parallel shift lower":
-      return `${segment} moved mostly in parallel with yields lower. Curve shape changed little; the main signal is a broad rates rally.`;
+      return `${segment} moved near-parallel with yields lower. The pair's slope change remained inside the stated classification tolerance.`;
   }
 };
 
@@ -378,7 +400,12 @@ export const findCompleteCurveObservationOnOrBefore = (rows: HistoricalRow[], ta
   return null;
 };
 
-export const buildCurveMove = (reference: HistoricalRow, asOf: HistoricalRow, pair: CurvePair): CurveMove | null => {
+export const buildCurveMove = (
+  reference: HistoricalRow,
+  asOf: HistoricalRow,
+  pair: CurvePair,
+  shapeToleranceBps = curveMoveShapeToleranceBps["1W"]
+): CurveMove | null => {
   const currentLong = asOf[pair.longKey];
   const currentShort = asOf[pair.shortKey];
   const currentSpread = currentSpreadForPair(asOf, pair);
@@ -401,7 +428,7 @@ export const buildCurveMove = (reference: HistoricalRow, asOf: HistoricalRow, pa
   const shortDeltaBps = (currentShort - priorShort) * 100;
   const spreadDeltaBps = currentSpread - priorSpread;
   const levelDeltaBps = (longDeltaBps + shortDeltaBps) / 2;
-  const type = classifyCurveMove(spreadDeltaBps, levelDeltaBps);
+  const type = classifyCurveMove(spreadDeltaBps, levelDeltaBps, shapeToleranceBps);
 
   return {
     comparisonDate: reference.date,
@@ -409,6 +436,7 @@ export const buildCurveMove = (reference: HistoricalRow, asOf: HistoricalRow, pa
     longDeltaBps,
     spreadDeltaBps,
     levelDeltaBps,
+    shapeToleranceBps,
     type,
     rationale: movementRationale(type, pair)
   };
@@ -418,13 +446,14 @@ export const buildCurveMoveForDates = (
   rows: HistoricalRow[],
   pair: CurvePair,
   asOfDate: string,
-  referenceDate: string
+  referenceDate: string,
+  shapeToleranceBps = curveMoveShapeToleranceBps["1W"]
 ) => {
   const asOf = findPairObservationOnOrBefore(rows, pair, asOfDate);
   const reference = findPairObservationOnOrBefore(rows, pair, referenceDate);
 
   if (!asOf || !reference || reference.date >= asOf.date) return null;
-  return buildCurveMove(reference, asOf, pair);
+  return buildCurveMove(reference, asOf, pair, shapeToleranceBps);
 };
 
 export const buildCurveRegimeTimeline = (
@@ -439,7 +468,10 @@ export const buildCurveRegimeTimeline = (
     .flatMap((asOf) => {
       const targetDate = getComparisonTargetDate(asOf.date, horizon);
       const reference = findPairObservationOnOrBefore(rows, pair, targetDate);
-      const move = reference && reference.date < asOf.date ? buildCurveMove(reference, asOf, pair) : null;
+      const shapeToleranceBps = curveMoveShapeToleranceBps[horizon];
+      const move = reference && reference.date < asOf.date
+        ? buildCurveMove(reference, asOf, pair, shapeToleranceBps)
+        : null;
       const spreadBps = currentSpreadForPair(asOf, pair);
 
       return move && isNumber(spreadBps)
@@ -450,6 +482,7 @@ export const buildCurveRegimeTimeline = (
               spreadBps,
               spreadDeltaBps: move.spreadDeltaBps,
               levelDeltaBps: move.levelDeltaBps,
+              shapeToleranceBps: move.shapeToleranceBps,
               type: move.type
             }
           ]
@@ -469,19 +502,23 @@ const std = (values: number[]) => {
   return Math.sqrt(variance);
 };
 
-const valueChangeMonths = (rows: HistoricalRow[], key: ResearchMaturityKey, lookbackMonths: number) => {
-  const last = rows.filter((row) => typeof row[key] === "number").at(-1);
+const valueChangeMonths = (
+  referenceRows: HistoricalRow[],
+  last: HistoricalRow | undefined,
+  key: ResearchMaturityKey,
+  lookbackMonths: number
+) => {
   if (!last || typeof last[key] !== "number") return null;
 
   const target = toIsoDate(addMonths(isoToDate(last.date), -lookbackMonths));
-  const prior = [...rows]
+  const prior = [...referenceRows]
     .reverse()
     .find((row) => row.date <= target && typeof row[key] === "number");
 
   return prior && typeof prior[key] === "number" ? (last[key] - prior[key]) * 100 : null;
 };
 
-export const buildStats = (rows: HistoricalRow[]) =>
+export const buildStats = (rows: HistoricalRow[], referenceRows = rows) =>
   maturityKeys.map((key) => {
     const values = rows
       .map((row) => row[key])
@@ -496,7 +533,8 @@ export const buildStats = (rows: HistoricalRow[]) =>
       })
       .filter((value): value is number => typeof value === "number");
 
-    const latest = values.at(-1) ?? null;
+    const latestObservation = [...rows].reverse().find((row) => isNumber(row[key]));
+    const latest = latestObservation && isNumber(latestObservation[key]) ? latestObservation[key] : null;
     const valuesBelow = latest === null ? 0 : values.filter((value) => value <= latest).length;
 
     return {
@@ -509,9 +547,9 @@ export const buildStats = (rows: HistoricalRow[]) =>
         const dailyVol = std(changes);
         return dailyVol === null ? null : dailyVol * Math.sqrt(252);
       })(),
-      oneMonthChangeBps: valueChangeMonths(rows, key, 1),
-      threeMonthChangeBps: valueChangeMonths(rows, key, 3),
-      oneYearChangeBps: valueChangeMonths(rows, key, 12),
+      oneMonthChangeBps: valueChangeMonths(referenceRows, latestObservation, key, 1),
+      threeMonthChangeBps: valueChangeMonths(referenceRows, latestObservation, key, 3),
+      oneYearChangeBps: valueChangeMonths(referenceRows, latestObservation, key, 12),
       percentile: values.length && latest !== null ? (valuesBelow / values.length) * 100 : null,
       observations: values.length
     };
