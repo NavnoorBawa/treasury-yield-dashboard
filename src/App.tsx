@@ -1,17 +1,11 @@
 import { RefreshCw, Moon, Sun } from "lucide-react";
-import { HistoricalChart } from "./components/HistoricalChart";
 import { LoadingBlock } from "./components/LoadingBlock";
-import { MarketSummary } from "./components/MarketSummary";
 import { MetricCard } from "./components/MetricCard";
 import { ResearchWorkbench } from "./components/ResearchWorkbench";
-import { YieldCurveChart } from "./components/YieldCurveChart";
 import { useTheme } from "./hooks/useTheme";
 import { useTreasuryYields } from "./hooks/useTreasuryYields";
-import { formatDate, formatTimestamp } from "./lib/format";
-import type { DashboardMaturityKey } from "./types";
+import { formatDate } from "./lib/format";
 import "./styles/global.css";
-
-const maturityOrder: DashboardMaturityKey[] = ["2Y", "5Y", "10Y", "30Y"];
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -67,32 +61,7 @@ function App() {
           : data?.summary.map((point) => <MetricCard key={point.key} point={point} />)}
       </section>
 
-      <section className="dashboard-grid">
-        {data ? <YieldCurveChart data={data.curve} /> : <LoadingBlock className="panel panel--curve" rows={6} />}
-        {data ? <MarketSummary data={data} /> : <LoadingBlock className="panel panel--summary" rows={6} />}
-      </section>
-
-      <section className="section-header">
-        <div>
-          <p className="eyebrow">Historical context</p>
-          <h2>One-Year Yield History</h2>
-        </div>
-        <span>{data ? `Last feed refresh ${formatTimestamp(data.source.feedUpdatedAt)}` : "Loading feed timestamp"}</span>
-      </section>
-
-      <section className="history-grid" aria-label="Historical charts by maturity">
-        {isLoading
-          ? Array.from({ length: 4 }).map((_, index) => <LoadingBlock key={index} className="history-card" rows={5} />)
-          : data
-            ? maturityOrder.map((key) => {
-                const summary = data.summary.find((point) => point.key === key);
-                if (!summary) return null;
-                return <HistoricalChart key={key} maturityKey={key} summary={summary} data={data.history[key]} />;
-              })
-            : null}
-      </section>
-
-      <ResearchWorkbench />
+      <ResearchWorkbench currentData={data} currentLoading={isLoading || isFetching} />
 
       <footer className="app-footer">
         <span>Current data: U.S. Treasury XML. Long-run history: Federal Reserve H.15 DDP.</span>

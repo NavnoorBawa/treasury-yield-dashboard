@@ -4,6 +4,7 @@ import {
   DASHBOARD_MATURITIES,
   DATA_SOURCE,
   HISTORY_WINDOW_DAYS,
+  RESEARCH_SPREADS,
   TREASURY_DATASET,
   TREASURY_FEED_URL
 } from "./config.js";
@@ -180,27 +181,18 @@ const buildHistory = (rows, latest) => {
   );
 };
 
-const buildSpreads = (latest, previous) => {
-  const tenTwo = latest.values["10Y"] - latest.values["2Y"];
-  const previousTenTwo = previous.values["10Y"] - previous.values["2Y"];
-  const thirtyFive = latest.values["30Y"] - latest.values["5Y"];
-  const previousThirtyFive = previous.values["30Y"] - previous.values["5Y"];
+const buildSpreads = (latest, previous) =>
+  RESEARCH_SPREADS.map(({ key, label, minuend, subtrahend }) => {
+    const current = latest.values[minuend] - latest.values[subtrahend];
+    const prior = previous.values[minuend] - previous.values[subtrahend];
 
-  return [
-    {
-      key: "10Y2Y",
-      label: "10Y - 2Y",
-      valueBps: round(tenTwo * 100, 1),
-      changeBps: round((tenTwo - previousTenTwo) * 100, 1)
-    },
-    {
-      key: "30Y5Y",
-      label: "30Y - 5Y",
-      valueBps: round(thirtyFive * 100, 1),
-      changeBps: round((thirtyFive - previousThirtyFive) * 100, 1)
-    }
-  ];
-};
+    return {
+      key,
+      label,
+      valueBps: round(current * 100, 1),
+      changeBps: round((current - prior) * 100, 1)
+    };
+  });
 
 export async function getTreasuryYieldData() {
   const currentYear = getNewYorkYear();
@@ -236,4 +228,3 @@ export async function getTreasuryYieldData() {
     spreads: buildSpreads(latest, previous)
   };
 }
-

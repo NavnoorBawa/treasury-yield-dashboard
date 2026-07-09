@@ -43,7 +43,12 @@ assertSpread(latestHistoryRow, "10Y5Y", "10Y", "5Y");
 assertSpread(latestHistoryRow, "30Y5Y", "30Y", "5Y");
 assertSpread(latestHistoryRow, "5Y2Y", "5Y", "2Y");
 assertSpread(latestHistoryRow, "30Y10Y", "30Y", "10Y");
-assertSpread(latestHistoryRow, "10Y3M", "10Y", "3M");
+
+assert.equal(treasury.spreads.length, 6, "Dashboard requires six core curve spreads");
+for (const spread of treasury.spreads) {
+  assert.equal(typeof spread.valueBps, "number", `${spread.key} current spread is numeric`);
+  assert.equal(typeof spread.changeBps, "number", `${spread.key} daily spread change is numeric`);
+}
 
 for (const point of treasury.summary) {
   approxEqual(latestHistoryRow[point.key], point.value, `Latest historical ${point.key} should match Treasury supplement`);
@@ -63,8 +68,7 @@ console.log(
         "30Y2Y": latestHistoryRow["30Y2Y"],
         "10Y5Y": latestHistoryRow["10Y5Y"],
         "30Y5Y": latestHistoryRow["30Y5Y"],
-        "30Y10Y": latestHistoryRow["30Y10Y"],
-        "10Y3M": latestHistoryRow["10Y3M"]
+        "30Y10Y": latestHistoryRow["30Y10Y"]
       }
     },
     null,

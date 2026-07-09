@@ -9,6 +9,8 @@ Use a two-source architecture:
 
 FRED is credible and professor-friendly as a reference, but it is not the best primary production feed here because it republishes Treasury constant maturity data through the Federal Reserve/FRED ecosystem and can lag the Treasury feed. The Treasury XML feed is the direct publisher for the Daily Treasury Par Yield Curve Rates used in the top current-market dashboard. The Federal Reserve H.15 DDP is the best free official source for long-run historical research because it provides a direct automated CSV package with all Treasury constant maturity observations.
 
+`yfinance` is deliberately not used. It is an interface to Yahoo Finance data, not an official publisher of U.S. Treasury constant-maturity yields, and it is not an appropriate authoritative source for the fixed 2Y, 5Y, 10Y, and 30Y CMT series in this project.
+
 ## Sources Compared
 
 ### 1. U.S. Treasury Daily Treasury Interest Rate XML Feed
@@ -21,6 +23,8 @@ Primary source for Daily Treasury Par Yield Curve Rates.
 - Maturities available include 1M, 1.5M, 2M, 3M, 4M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 20Y, and 30Y.
 - No API key required.
 - Free, official, and directly maintained by Treasury.
+
+Treasury states that these CMT par yields are derived from indicative bid-side quotations obtained by the Federal Reserve Bank of New York at or near 3:30 PM each business day. Therefore, the official CMT curve is intrinsically daily. A free source that appears to update intraday would be showing a different instrument, an estimate, or a republished value rather than a newer official CMT fixing.
 
 The Treasury documentation says the feed accepts GET requests, returns XML responses, and supports standard HTTP response codes. Treasury also documents the exact endpoint used by this app:
 
@@ -48,22 +52,16 @@ Official and reliable, but the Fed notes that nominal Treasury constant maturity
 
 The H.15 release is useful for cross-checking, academic context, and long-run history. For latest daily CMT values, Treasury remains closer to the source. For long-run daily historical analysis, the H.15 DDP package is better than Treasury XML because it extends earlier than Treasury's documented Daily Treasury Par Yield Curve XML availability.
 
-## Freshness Check on July 7, 2026
+## Freshness Validation
 
-At verification time:
+`npm run verify:data` fetches the two official sources at runtime and validates the following on every release check:
 
-- Treasury XML latest observation: `2026-07-06`
-  - 2Y: `4.13`
-  - 5Y: `4.21`
-  - 10Y: `4.48`
-  - 30Y: `4.99`
-- FRED CSV latest observation for `DGS2,DGS5,DGS10,DGS30`: `2026-07-02`
-  - 2Y: `4.14`
-  - 5Y: `4.23`
-  - 10Y: `4.49`
-  - 30Y: `4.98`
+- all four current maturity values are numeric;
+- daily basis-point changes equal `(latest - prior) * 100`;
+- every core spread equals `(long maturity - short maturity) * 100`;
+- the H.15 latest historical row is replaced or supplemented by the same latest official Treasury observation when Treasury is newer.
 
-Because the Treasury feed is currently fresher and is the direct official source, it is the better production source for this dashboard.
+The direct Treasury feed remains the better current-data source because it is both the original official publisher and, when the feeds have not updated simultaneously, the fresher of the two official records.
 
 ## Long-Run History Check
 
@@ -72,7 +70,6 @@ The H.15 Treasury Constant Maturities package provides materially longer history
 - 5Y and 10Y: daily observations from `1962-01-02`.
 - 2Y: daily observations from `1976-06-01`.
 - 30Y: daily observations from `1977-02-15`, with the known 30Y discontinuation/reintroduction gap preserved as missing values.
-- 3M is included for 10Y-3M curve-spread analysis from `1981-09-01`.
 
 This makes H.15 DDP the best official free historical feed for macro-regime analysis, while Treasury XML remains the best latest-current feed.
 
@@ -81,6 +78,10 @@ This makes H.15 DDP the best official free historical feed for macro-regime anal
 Keep Treasury XML as the primary current-data source and Federal Reserve H.15 DDP as the primary historical research source.
 
 For a larger production system, FRED should be added as a secondary validation/citation source, not as the primary feed. The dashboard can display a source badge and optionally warn if Treasury, H.15, and FRED diverge after all sources have updated.
+
+## Deployment Decision
+
+Vercel remains the better publishing target for this project. It deploys the React application and Node API routes together, creates preview deployments from branches, and keeps the presentation responsive on any device. Streamlit is effective for a quick Python research prototype, but it would require a separate implementation and gives less control over this product's interaction model, metadata, and institutional dashboard presentation. The current production site stays on `main`; experimental curve-regime work is isolated in a feature branch until approved.
 
 ## Event Marker Policy
 

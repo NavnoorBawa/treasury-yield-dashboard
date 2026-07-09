@@ -1,10 +1,10 @@
 export type DashboardMaturityKey = "2Y" | "5Y" | "10Y" | "30Y";
 
-export type ResearchMaturityKey = "3M" | DashboardMaturityKey;
+export type ResearchMaturityKey = DashboardMaturityKey;
 
 export type CoreCurveSpreadKey = "5Y2Y" | "10Y2Y" | "30Y2Y" | "10Y5Y" | "30Y5Y" | "30Y10Y";
 
-export type SpreadKey = CoreCurveSpreadKey | "10Y3M";
+export type SpreadKey = CoreCurveSpreadKey;
 
 export type CacheStatus = "hit" | "refresh" | "stale";
 
@@ -66,7 +66,6 @@ export interface TreasuryPayload {
 
 export interface HistoricalRow {
   date: string;
-  "3M": number | null;
   "2Y": number | null;
   "5Y": number | null;
   "10Y": number | null;
@@ -77,7 +76,6 @@ export interface HistoricalRow {
   "10Y5Y": number | null;
   "30Y5Y": number | null;
   "30Y10Y": number | null;
-  "10Y3M": number | null;
 }
 
 export interface HistoricalPayload {

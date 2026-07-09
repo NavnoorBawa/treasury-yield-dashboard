@@ -51,7 +51,6 @@ export const HISTORICAL_SOURCE = {
 };
 
 export const HISTORICAL_MATURITIES = [
-  { key: "3M", label: "3 Month", shortLabel: "3M", field: "RIFLGFCM03_N.B", years: 0.25 },
   { key: "2Y", label: "2 Year", shortLabel: "2Y", field: "RIFLGFCY02_N.B", years: 2 },
   { key: "5Y", label: "5 Year", shortLabel: "5Y", field: "RIFLGFCY05_N.B", years: 5 },
   { key: "10Y", label: "10 Year", shortLabel: "10Y", field: "RIFLGFCY10_N.B", years: 10 },
@@ -64,6 +63,5 @@ export const RESEARCH_SPREADS = [
   { key: "30Y2Y", label: "30Y - 2Y", longLabel: "30Y minus 2Y", minuend: "30Y", subtrahend: "2Y" },
   { key: "10Y5Y", label: "10Y - 5Y", longLabel: "10Y minus 5Y", minuend: "10Y", subtrahend: "5Y" },
   { key: "30Y5Y", label: "30Y - 5Y", longLabel: "30Y minus 5Y", minuend: "30Y", subtrahend: "5Y" },
-  { key: "30Y10Y", label: "30Y - 10Y", longLabel: "30Y minus 10Y", minuend: "30Y", subtrahend: "10Y" },
-  { key: "10Y3M", label: "10Y - 3M", longLabel: "10Y minus 3M", minuend: "10Y", subtrahend: "3M" }
+  { key: "30Y10Y", label: "30Y - 10Y", longLabel: "30Y minus 10Y", minuend: "30Y", subtrahend: "10Y" }
 ];

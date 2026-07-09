@@ -138,6 +138,13 @@ app.use((_request, response) => {
   response.status(404).sendFile(path.join(distPath, "404.html"));
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT);
+
+server.on("listening", () => {
   console.log(`Treasury Yield Dashboard listening on http://localhost:${PORT}`);
+});
+
+server.on("error", (error) => {
+  console.error(`Treasury Yield Dashboard could not bind to port ${PORT}: ${error.message}`);
+  process.exitCode = 1;
 });

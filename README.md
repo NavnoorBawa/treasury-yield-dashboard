@@ -1,6 +1,6 @@
 # U.S. Treasury Yield Dashboard
 
-A clean institutional-style dashboard for U.S. Treasury Constant Maturity rates. It displays current 2Y, 5Y, 10Y, and 30Y yields, daily moves in basis points and percent, a yield curve, one-year historical charts, long-run macro regime analysis, weekly/monthly curve movement classification, source timestamps, and light/dark themes.
+A clean institutional-style dashboard for U.S. Treasury Constant Maturity rates. It displays current 2Y, 5Y, 10Y, and 30Y yields, daily moves in basis points and percent, six core curve spreads, date-to-date curve comparison, long-run macro research, and light/dark themes.
 
 Live deployment: <https://treasury-yield-dashboard.vercel.app>
 
@@ -13,7 +13,7 @@ The backend reads the official U.S. Treasury XML feed for Daily Treasury Par Yie
 
 No API key is required. The server fetches the current New York calendar year plus the prior year, normalizes the XML, computes daily changes against the previous Treasury observation, and caches the result for 10 minutes by default. The frontend refreshes automatically every 15 minutes while open.
 
-Treasury rates are official end-of-day values, so the latest available official record may be the previous business day until Treasury publishes the next update.
+Treasury CMTs are official end-of-day values. Treasury derives them from indicative bid-side quotations obtained by the Federal Reserve Bank of New York at or near 3:30 PM ET each business day, so no free official intraday CMT update exists. Faster polling would not make the underlying official curve fresher.
 
 FRED was reviewed as a possible primary source because it is academically familiar and reliable. The app intentionally keeps Treasury as primary for current values because Treasury is the direct official publisher of the Daily Treasury Par Yield Curve Rates, while FRED republishes the relevant DGS series from the Federal Reserve/H.15 ecosystem and its official API requires an API key.
 
@@ -27,12 +27,13 @@ This gives reliable long-run daily history back to the earliest available H.15 o
 ## Research Features
 
 - Long-run historical data for 2Y, 5Y, 10Y, and 30Y Treasury yields.
+- Trader-style workspace tabs: Market, Compare, History, and Regimes. Only the active research view is shown, avoiding the previous stacked-scroll layout.
 - Date-range presets: 1Y, 5Y, 10Y, 20Y, Max, plus custom start/end dates.
-- Macro event markers with focus windows for major market, policy, crisis, and geopolitical shocks.
-- Yield spread analysis for all six 2Y/5Y/10Y/30Y curve combinations: 5Y-2Y, 10Y-2Y, 30Y-2Y, 10Y-5Y, 30Y-5Y, and 30Y-10Y, plus 10Y-3M as a policy-sensitive curve measure.
-- Weekly and monthly curve movement classification at the selected range-end date, using available prior observations even when the lookback starts before the visible chart window. The table includes short/long tenor deltas, spread deltas, and six movement types: bull steepening, bear steepening, bull flattening, bear flattening, parallel shift higher, and parallel shift lower.
+- Six core 2Y/5Y/10Y/30Y curve combinations: 5Y-2Y, 10Y-2Y, 30Y-2Y, 10Y-5Y, 30Y-5Y, and 30Y-10Y.
+- Date-to-date yield curve comparison with custom as-of/reference dates and 1W, 1M, 1Y, and range-start shortcuts.
+- Macro event markers with focus actions that apply the event window and return directly to the rates/spreads view.
+- A weekly or monthly color-coded curve-regime timeline for each of the six segments. The six classifications are bull steepening, bear steepening, bull flattening, bear flattening, parallel shift higher, and parallel shift lower.
 - Selected-range CSV export containing dates, 2Y/5Y/10Y/30Y yields, and all six core curve spreads.
-- Rule-based current year-end curve scenario analysis using current curve shape and recent spread momentum. This is scenario analysis only, not a point forecast or investment recommendation.
 - Selected-period statistics: latest, min, max, average, annualized daily-change volatility, 1M/3M/1Y changes, percentile rank, and observation count.
 - Light and dark themes for presentation use.
 
@@ -81,7 +82,7 @@ Returns:
 - `summary`: current 2Y, 5Y, 10Y, and 30Y yields plus prior observation, daily bps change, and daily percent change.
 - `curve`: latest official curve points.
 - `history`: one-year historical series for each dashboard maturity.
-- `spreads`: 10Y-2Y and 30Y-5Y curve spreads used by the current-market summary.
+- `spreads`: all six current 2Y/5Y/10Y/30Y curve spreads with daily basis-point changes.
 - `source`: Treasury source links, latest official record date, previous record date, feed timestamp, and retrieval timestamp.
 - `cache`: cache status (`hit`, `refresh`, or `stale`).
 
@@ -89,7 +90,7 @@ Returns:
 
 Returns:
 
-- `rows`: long-run H.15 daily Treasury constant maturity observations with 3M, 2Y, 5Y, 10Y, 30Y, and computed spread fields for all six 2Y/5Y/10Y/30Y curve pairs plus 10Y-3M.
+- `rows`: long-run H.15 daily Treasury constant maturity observations for 2Y, 5Y, 10Y, and 30Y, plus computed fields for all six pairwise curve spreads.
 - `maturities`: maturity metadata used by the research charts.
 - `spreads`: spread definitions.
 - `availability`: first/last valid dates and observation counts by maturity.
@@ -106,7 +107,7 @@ server/
   index.js              Express app, API routes, production static serving
   treasuryClient.js     Treasury XML fetch/parse/normalize logic
 src/
-  components/           Dashboard cards, charts, summary panels
+  components/           Tabbed workspace, curve matrix, comparison, charts, and regime timeline
   hooks/                Data refresh and theme hooks
   lib/                  Formatting, event, range, and statistics utilities
   styles/               Theme tokens and responsive layout
