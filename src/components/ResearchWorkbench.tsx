@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
   Area,
   AreaChart,
@@ -64,6 +64,18 @@ const historyViews: Array<{ id: HistoryView; label: string }> = [
   { id: "events", label: "Event studies" },
   { id: "statistics", label: "Statistics" }
 ];
+
+const getAdjacentTab = <T extends string>(items: T[], current: T, key: string) => {
+  const currentIndex = items.indexOf(current);
+  if (currentIndex < 0) return null;
+
+  if (key === "Home") return items[0];
+  if (key === "End") return items.at(-1) ?? null;
+  if (key !== "ArrowLeft" && key !== "ArrowRight") return null;
+
+  const offset = key === "ArrowRight" ? 1 : -1;
+  return items[(currentIndex + offset + items.length) % items.length];
+};
 
 const yieldColors: Record<ResearchMaturityKey, string> = {
   "2Y": "var(--series-2y)",
@@ -226,6 +238,24 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
     setComparisonReference(getComparisonTargetDate(asOf, horizon));
   };
 
+  const handleWorkspaceTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab) => {
+    const next = getAdjacentTab(workspaceTabs.map((tab) => tab.id), current, event.key);
+    if (!next) return;
+
+    event.preventDefault();
+    setActiveTab(next);
+    requestAnimationFrame(() => document.getElementById(`workspace-tab-${next}`)?.focus());
+  };
+
+  const handleHistoryViewKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: HistoryView) => {
+    const next = getAdjacentTab(historyViews.map((view) => view.id), current, event.key);
+    if (!next) return;
+
+    event.preventDefault();
+    setHistoryView(next);
+    requestAnimationFrame(() => document.getElementById(`history-view-tab-${next}`)?.focus());
+  };
+
   const downloadSelectedCurveData = () => {
     if (!selectedRows.length) return;
     const headers = ["date", "2Y", "5Y", "10Y", "30Y", ...curvePairs.map((pair) => pair.label)];
@@ -308,7 +338,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
                 <Tooltip content={<MultiTooltip unit="yield" />} />
                 <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ color: "var(--muted)" }} />
                 {visibleEvents.map((event) => <ReferenceLine key={event.id} x={event.startDate} stroke="var(--event-line)" strokeDasharray="4 6" ifOverflow="extendDomain" />)}
-                {maturityKeys.map((key) => <Line key={key} type="monotone" dataKey={key} name={key} connectNulls={false} dot={false} stroke={yieldColors[key]} strokeWidth={key === "10Y" ? 2.4 : 1.8} isAnimationActive={false} />)}
+                {maturityKeys.map((key) => <Line key={key} type="linear" dataKey={key} name={key} connectNulls={false} dot={false} stroke={yieldColors[key]} strokeWidth={key === "10Y" ? 2.4 : 1.8} isAnimationActive={false} />)}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -345,7 +375,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
                 <YAxis tickLine={false} axisLine={false} width={48} tickFormatter={(value) => `${Number(value).toFixed(0)}`} tick={{ fill: "var(--muted)", fontSize: 11 }} />
                 <Tooltip content={<MultiTooltip unit="bps" />} />
                 <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
-                <Area type="monotone" dataKey={selectedSpread} name={selectedSpreadMeta?.label ?? selectedSpread} stroke={spreadColors[selectedSpread]} strokeWidth={2} fill="url(#spread-gradient)" dot={false} isAnimationActive={false} />
+                <Area type="linear" dataKey={selectedSpread} name={selectedSpreadMeta?.label ?? selectedSpread} stroke={spreadColors[selectedSpread]} strokeWidth={2} fill="url(#spread-gradient)" dot={false} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -407,7 +437,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
         <span>{data?.source.supplementalSource}</span>
         <span>{data?.source.note}</span>
         <span>Observed business days only. Weekend, federal-market-holiday, and source `ND` values are not imputed.</span>
-        <span>Min, max, average, volatility, and empirical percentile use the selected range. 1M, 3M, and 1Y changes use the nearest valid observation on or before each calendar lookback, even when it predates the visible range.</span>
+        <span>Min, max, average, volatility, and empirical percentile use the selected range. 1M, 3M, and 1Y changes use the nearest valid observation on or before each calendar lookback, including an observation just before the visible range; a value is shown only when that observation is within 10 calendar days of the target date.</span>
         <span>Annualized volatility is the sample standard deviation of business-day yield changes multiplied by sqrt(252).</span>
       </div>
     </article>
@@ -428,6 +458,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
               aria-selected={activeTab === tab.id}
               aria-controls={`workspace-panel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => handleWorkspaceTabKeyDown(event, tab.id)}
             >
               <Icon size={17} aria-hidden="true" />
               <span><strong>{tab.label}</strong><small>{tab.description}</small></span>
@@ -457,7 +488,7 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
             <div>
               <p className="eyebrow">Macro research layer</p>
               <h2>{activeTab === "comparison" ? "Historical Yield Curve Comparison" : activeTab === "regimes" ? "Curve Movement Regimes" : "Historical Treasury Regime Analysis"}</h2>
-              <p>{activeTab === "comparison" ? "Compare complete Treasury curves from any two official business-day observations." : activeTab === "regimes" ? "Classify curve behavior over time using the selected segment and movement horizon." : "Analyze rates, spreads, event windows, and statistical behavior without leaving the workspace."}</p>
+              <p>{activeTab === "comparison" ? "Compare complete Treasury curves from any two official business-day observations." : activeTab === "regimes" ? "Date-to-date two-tenor curve decomposition with completed calendar-period regime history." : "Analyze rates, spreads, event windows, and statistical behavior without leaving the workspace."}</p>
             </div>
             <div className="research-source"><span>History: {formatDate(data.source.recordStartDate)} - {formatDate(data.source.recordEndDate)}</span><strong>{data.rows.length.toLocaleString()} daily records</strong></div>
           </div>
@@ -477,20 +508,42 @@ export function ResearchWorkbench({ currentData, currentLoading }: ResearchWorkb
           {activeTab === "history" ? (
             <>
               <div className="research-subtabs" role="tablist" aria-label="Historical research panels">
-                {historyViews.map((view) => <button key={view.id} className={historyView === view.id ? "research-subtab research-subtab--active" : "research-subtab"} type="button" role="tab" aria-selected={historyView === view.id} onClick={() => setHistoryView(view.id)}>{view.label}</button>)}
+                {historyViews.map((view) => (
+                  <button
+                    id={`history-view-tab-${view.id}`}
+                    key={view.id}
+                    className={historyView === view.id ? "research-subtab research-subtab--active" : "research-subtab"}
+                    type="button"
+                    role="tab"
+                    aria-selected={historyView === view.id}
+                    aria-controls={`history-view-panel-${view.id}`}
+                    onClick={() => setHistoryView(view.id)}
+                    onKeyDown={(event) => handleHistoryViewKeyDown(event, view.id)}
+                  >
+                    {view.label}
+                  </button>
+                ))}
               </div>
-              {historyView === "charts" ? renderHistoryCharts() : historyView === "events" ? renderEvents() : renderStatistics()}
+              <div id={`history-view-panel-${historyView}`} role="tabpanel" aria-labelledby={`history-view-tab-${historyView}`}>
+                {historyView === "charts" ? renderHistoryCharts() : historyView === "events" ? renderEvents() : renderStatistics()}
+              </div>
             </>
           ) : null}
 
           {activeTab === "regimes" ? (
             <>
               <div className="regime-controls">
-                <div className="spread-selector" aria-label="Curve segment selector">
-                  {curvePairs.map((pair) => <button className={selectedPairKey === pair.key ? "spread-selector__button spread-selector__button--active" : "spread-selector__button"} type="button" key={pair.key} aria-pressed={selectedPairKey === pair.key} onClick={() => setSelectedPairKey(pair.key)}>{pair.label}</button>)}
+                <div className="regime-control-group">
+                  <span className="regime-control-group__label">Curve segment</span>
+                  <div className="spread-selector" aria-label="Curve segment selector">
+                    {curvePairs.map((pair) => <button className={selectedPairKey === pair.key ? "spread-selector__button spread-selector__button--active" : "spread-selector__button"} type="button" key={pair.key} aria-pressed={selectedPairKey === pair.key} onClick={() => setSelectedPairKey(pair.key)}>{pair.label}</button>)}
+                  </div>
                 </div>
-                <div className="segmented-control segmented-control--compact" aria-label="Curve movement horizon">
-                  {(["1W", "1M"] as CurveMoveHorizon[]).map((horizon) => <button className={regimeHorizon === horizon ? "segmented-control__button segmented-control__button--active" : "segmented-control__button"} type="button" key={horizon} aria-pressed={regimeHorizon === horizon} onClick={() => setRegimeHorizon(horizon)}>{horizon}</button>)}
+                <div className="regime-control-group regime-control-group--horizon">
+                  <span className="regime-control-group__label">Historical interval</span>
+                  <div className="segmented-control segmented-control--compact" aria-label="Curve movement horizon">
+                    {(["1W", "1M"] as CurveMoveHorizon[]).map((horizon) => <button className={regimeHorizon === horizon ? "segmented-control__button segmented-control__button--active" : "segmented-control__button"} type="button" key={horizon} aria-pressed={regimeHorizon === horizon} onClick={() => setRegimeHorizon(horizon)}>{horizon === "1W" ? "Weekly" : "Monthly"}</button>)}
+                  </div>
                 </div>
               </div>
               {range.start && range.end ? <CurveRegimeTimeline rows={data.rows} pair={selectedPair} startDate={range.start} endDate={range.end} horizon={regimeHorizon} /> : <div className="empty-state">Select a date range to map curve movement.</div>}

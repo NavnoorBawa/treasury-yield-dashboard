@@ -72,7 +72,7 @@ export function YieldCurveChart({ data, recordDate }: YieldCurveChartProps) {
             />
             <Tooltip content={<ChartTooltip />} cursor={{ stroke: "var(--chart-crosshair)" }} />
             <Line
-              type="monotone"
+              type="linear"
               dataKey="value"
               stroke="var(--chart-curve)"
               strokeWidth={2.6}

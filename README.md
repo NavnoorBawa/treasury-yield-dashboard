@@ -32,12 +32,12 @@ This gives reliable long-run daily history back to the earliest available H.15 o
 - Six core 2Y/5Y/10Y/30Y curve combinations: 5Y-2Y, 10Y-2Y, 30Y-2Y, 10Y-5Y, 30Y-5Y, and 30Y-10Y.
 - Date-to-date yield curve comparison with custom as-of/reference dates and 1W, 1M, 1Y, and range-start shortcuts.
 - Macro event markers with focus actions that apply the event window and return directly to the rates/spreads view.
-- A weekly or monthly color-coded curve-regime timeline for each of the six segments. The six classifications are bull steepening, bear steepening, bull flattening, bear flattening, parallel shift higher, and parallel shift lower. Near-parallel uses a disclosed 3 bps weekly or 5 bps monthly slope tolerance.
+- A weekly or monthly color-coded curve-regime ribbon for each of the six segments. Classifications use non-overlapping completed calendar intervals, while the daily spread remains a separate line. The six classifications are bull steepening, bear steepening, bull flattening, bear flattening, parallel shift higher, and parallel shift lower. Near-parallel uses a disclosed 3 bps weekly or 5 bps monthly slope tolerance; open periods remain unclassified.
 - Selected-range CSV export containing dates, 2Y/5Y/10Y/30Y yields, and all six core curve spreads.
 - Selected-period statistics: latest, min, max, average, annualized daily-change volatility, 1M/3M/1Y changes, empirical percentile rank, and observation count. Momentum changes use the nearest valid observation on or before the calendar lookback even when it predates the visible range.
 - Light and dark themes for presentation use.
 
-Historical charts use observed business-day data only. Weekends, federal market holidays, and source-level `ND` observations are not imputed. Missing 30Y observations during the Treasury discontinuation/reintroduction period are preserved as nulls rather than forward-filled or proxied with the 20Y adjustment-factor estimate. A methodology marker identifies Treasury's December 6, 2021 shift from quasi-cubic Hermite to monotone-convex curve construction; both regimes remain official, but long-run comparisons should recognize the change.
+Historical charts use observed business-day data only. Weekends, federal market holidays, and source-level `ND` observations are not imputed. Treasury stopped issuing the 30Y on February 18, 2002 and resumed publication of the observed 30Y CMT on February 9, 2006; the dashboard explicitly preserves February 18, 2002 through February 8, 2006 as unavailable rather than treating H.15's interim estimated values as observed 30Y quotations. Dependent 30Y spreads are consequently unavailable for that interval. A methodology marker identifies Treasury's December 6, 2021 shift from quasi-cubic Hermite to monotone-convex curve construction; both regimes remain official, but long-run comparisons should recognize the change.
 
 ## Quick Start
 

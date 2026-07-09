@@ -22,7 +22,13 @@ export function MetricCard({ point, previousRecordDate }: MetricCardProps) {
       <div className={`metric-card__change metric-card__change--${direction}`}>
         <Icon size={16} strokeWidth={2.2} aria-hidden="true" />
         <span>{formatBps(point.changeBps)}</span>
-        <span className="metric-card__change-pct">{formatPct(point.changePct)}</span>
+        <span
+          className="metric-card__change-pct"
+          title="Percentage change in the yield level, not bond total return."
+          aria-label={`Yield-level percentage change ${formatPct(point.changePct)}`}
+        >
+          {formatPct(point.changePct)}
+        </span>
         <small className="metric-card__change-context">vs {formatDate(previousRecordDate)} Treasury record</small>
       </div>
     </article>

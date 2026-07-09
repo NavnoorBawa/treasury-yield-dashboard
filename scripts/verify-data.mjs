@@ -7,9 +7,20 @@ const approxEqual = (actual, expected, label) => {
 };
 
 const assertSpread = (row, key, high, low) => {
-  if (typeof row[high] !== "number" || typeof row[low] !== "number") return;
+  if (typeof row[high] !== "number" || typeof row[low] !== "number") {
+    assert.equal(row[key], null, `${key} should be unavailable when ${high} or ${low} is unavailable`);
+    return;
+  }
   const expected = Math.round((row[high] - row[low]) * 1000) / 10;
   assert.equal(row[key], expected, `${key} should equal (${high} - ${low}) * 100`);
+};
+
+const assertThirtyYearGap = (row) => {
+  if (row.date < "2002-02-18" || row.date > "2006-02-08") return;
+  assert.equal(row["30Y"], null, `30Y should be unavailable on ${row.date}`);
+  assert.equal(row["30Y2Y"], null, `30Y-2Y should be unavailable on ${row.date}`);
+  assert.equal(row["30Y5Y"], null, `30Y-5Y should be unavailable on ${row.date}`);
+  assert.equal(row["30Y10Y"], null, `30Y-10Y should be unavailable on ${row.date}`);
 };
 
 const treasury = await getTreasuryYieldData();
@@ -32,6 +43,9 @@ for (const key of ["2Y", "5Y", "10Y", "30Y"]) {
 const latestHistoryRow = historical.rows.at(-1);
 assert.ok(latestHistoryRow, "Historical rows are required");
 assert.equal(historical.source.recordEndDate, latestHistoryRow.date, "Historical source end date should match latest row");
+for (let index = 1; index < historical.rows.length; index += 1) {
+  assert.ok(historical.rows[index - 1].date < historical.rows[index].date, "Historical rows must be strictly date ordered");
+}
 assert.equal(historical.availability["5Y"].firstDate, "1962-01-02", "5Y history should start in 1962");
 assert.equal(historical.availability["10Y"].firstDate, "1962-01-02", "10Y history should start in 1962");
 assert.equal(historical.availability["2Y"].firstDate, "1976-06-01", "2Y history should start in 1976");
@@ -43,6 +57,15 @@ assertSpread(latestHistoryRow, "10Y5Y", "10Y", "5Y");
 assertSpread(latestHistoryRow, "30Y5Y", "30Y", "5Y");
 assertSpread(latestHistoryRow, "5Y2Y", "5Y", "2Y");
 assertSpread(latestHistoryRow, "30Y10Y", "30Y", "10Y");
+historical.rows.forEach((row) => {
+  assertThirtyYearGap(row);
+  assertSpread(row, "5Y2Y", "5Y", "2Y");
+  assertSpread(row, "10Y2Y", "10Y", "2Y");
+  assertSpread(row, "30Y2Y", "30Y", "2Y");
+  assertSpread(row, "10Y5Y", "10Y", "5Y");
+  assertSpread(row, "30Y5Y", "30Y", "5Y");
+  assertSpread(row, "30Y10Y", "30Y", "10Y");
+});
 
 assert.equal(treasury.spreads.length, 6, "Dashboard requires six core curve spreads");
 for (const spread of treasury.spreads) {

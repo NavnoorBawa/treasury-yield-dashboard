@@ -57,6 +57,13 @@ export const HISTORICAL_MATURITIES = [
   { key: "30Y", label: "30 Year", shortLabel: "30Y", field: "RIFLGFCY30_N.B", years: 30 }
 ];
 
+// Treasury stopped issuing the 30-year bond on February 18, 2002 and resumed
+// publication of the 30-year CMT on February 9, 2006. H.15 exposes values in
+// this interval, but they are not observed 30-year CMT quotations. Keep the
+// research dataset strictly observed by leaving this interval unavailable.
+export const HISTORICAL_30Y_UNAVAILABLE_START = "2002-02-18";
+export const HISTORICAL_30Y_UNAVAILABLE_END = "2006-02-08";
+
 export const RESEARCH_SPREADS = [
   { key: "5Y2Y", label: "5Y - 2Y", longLabel: "5Y minus 2Y", minuend: "5Y", subtrahend: "2Y" },
   { key: "10Y2Y", label: "10Y - 2Y", longLabel: "10Y minus 2Y", minuend: "10Y", subtrahend: "2Y" },

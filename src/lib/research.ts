@@ -36,12 +36,19 @@ export const curveMoveTypes: CurveMoveType[] = [
 
 export type CurveMoveHorizon = "1W" | "1M";
 
+export type CurveComparisonHorizon = CurveMoveHorizon | "3M" | "6M" | "1Y";
+
 // CMT yields are published to one decimal basis point. A slightly wider monthly
 // tolerance avoids calling a trivial slope move a directional steepener/flattener.
 export const curveMoveShapeToleranceBps: Record<CurveMoveHorizon, number> = {
   "1W": 3,
   "1M": 5
 };
+
+// A calendar lookback can land on a weekend or market holiday. Ten days covers
+// normal holiday clusters while preventing a labelled 1M/3M/1Y change from
+// bridging a genuine source or maturity-availability gap.
+export const maxLookbackObservationGapDays = 10;
 
 export interface CurvePair {
   key: CoreCurveSpreadKey;
@@ -66,10 +73,13 @@ export interface CurveRegimePoint {
   date: string;
   comparisonDate: string;
   spreadBps: number;
+  shortDeltaBps: number;
+  longDeltaBps: number;
   spreadDeltaBps: number;
   levelDeltaBps: number;
   shapeToleranceBps: number;
   type: CurveMoveType;
+  rationale: string;
 }
 
 export const curvePairs: CurvePair[] = [
@@ -261,10 +271,12 @@ export const isoToDate = (isoDate: string) => new Date(`${isoDate}T00:00:00Z`);
 
 export const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
-export const getComparisonTargetDate = (date: string, horizon: CurveMoveHorizon | "1Y") => {
+export const getComparisonTargetDate = (date: string, horizon: CurveComparisonHorizon) => {
   const value = isoToDate(date);
   if (horizon === "1W") return toIsoDate(addDays(value, -7));
   if (horizon === "1M") return toIsoDate(addMonths(value, -1));
+  if (horizon === "3M") return toIsoDate(addMonths(value, -3));
+  if (horizon === "6M") return toIsoDate(addMonths(value, -6));
   return toIsoDate(addYears(value, -1));
 };
 
@@ -350,9 +362,9 @@ export const movementRationale = (type: CurveMoveType, pair: CurvePair) => {
     case "Bull flattening":
       return `${segment} flattened while the pair's average yield level fell. This is consistent with the long tenor rallying faster, but does not identify a single economic cause.`;
     case "Parallel shift higher":
-      return `${segment} moved near-parallel with yields higher. The pair's slope change remained inside the stated classification tolerance.`;
+      return `${segment} moved near-parallel with yields higher. The pair's curve change remained inside the stated classification tolerance.`;
     case "Parallel shift lower":
-      return `${segment} moved near-parallel with yields lower. The pair's slope change remained inside the stated classification tolerance.`;
+      return `${segment} moved near-parallel with yields lower. The pair's curve change remained inside the stated classification tolerance.`;
   }
 };
 
@@ -374,7 +386,7 @@ const lastIndexOnOrBefore = (rows: HistoricalRow[], targetDate: string) => {
   return candidate;
 };
 
-const isWithinObservationGap = (candidateDate: string, targetDate: string, maxCalendarDays = 10) => {
+const isWithinObservationGap = (candidateDate: string, targetDate: string, maxCalendarDays = maxLookbackObservationGapDays) => {
   const candidate = isoToDate(candidateDate).getTime();
   const target = isoToDate(targetDate).getTime();
   return (target - candidate) / 86_400_000 <= maxCalendarDays;
@@ -424,10 +436,11 @@ export const buildCurveMove = (
     return null;
   }
 
-  const longDeltaBps = (currentLong - priorLong) * 100;
-  const shortDeltaBps = (currentShort - priorShort) * 100;
-  const spreadDeltaBps = currentSpread - priorSpread;
-  const levelDeltaBps = (longDeltaBps + shortDeltaBps) / 2;
+  const roundBps = (value: number) => Math.round(value * 10) / 10;
+  const longDeltaBps = roundBps((currentLong - priorLong) * 100);
+  const shortDeltaBps = roundBps((currentShort - priorShort) * 100);
+  const spreadDeltaBps = roundBps(currentSpread - priorSpread);
+  const levelDeltaBps = roundBps((longDeltaBps + shortDeltaBps) / 2);
   const type = classifyCurveMove(spreadDeltaBps, levelDeltaBps, shapeToleranceBps);
 
   return {
@@ -456,38 +469,90 @@ export const buildCurveMoveForDates = (
   return buildCurveMove(reference, asOf, pair, shapeToleranceBps);
 };
 
+const calendarPeriodKey = (date: string, horizon: CurveMoveHorizon) => {
+  const value = isoToDate(date);
+
+  if (horizon === "1M") {
+    return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+
+  const mondayOffset = (value.getUTCDay() + 6) % 7;
+  return toIsoDate(addDays(value, -mondayOffset));
+};
+
+const isTerminalPeriodComplete = (date: string, horizon: CurveMoveHorizon) => {
+  const value = isoToDate(date);
+
+  if (horizon === "1W") return value.getUTCDay() === 5;
+
+  const lastWeekday = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, 0));
+  while (lastWeekday.getUTCDay() === 0 || lastWeekday.getUTCDay() === 6) {
+    lastWeekday.setUTCDate(lastWeekday.getUTCDate() - 1);
+  }
+
+  return toIsoDate(lastWeekday) === date;
+};
+
+const intervalIsPlausiblyContinuous = (referenceDate: string, asOfDate: string, horizon: CurveMoveHorizon) => {
+  const elapsedDays = (isoToDate(asOfDate).getTime() - isoToDate(referenceDate).getTime()) / 86_400_000;
+  return elapsedDays > 0 && elapsedDays <= (horizon === "1W" ? 11 : 45);
+};
+
 export const buildCurveRegimeTimeline = (
   rows: HistoricalRow[],
   pair: CurvePair,
   startDate: string,
   endDate: string,
   horizon: CurveMoveHorizon
-): CurveRegimePoint[] =>
-  rows
-    .filter((row) => row.date >= startDate && row.date <= endDate && hasPairValues(row, pair))
-    .flatMap((asOf) => {
-      const targetDate = getComparisonTargetDate(asOf.date, horizon);
-      const reference = findPairObservationOnOrBefore(rows, pair, targetDate);
-      const shapeToleranceBps = curveMoveShapeToleranceBps[horizon];
-      const move = reference && reference.date < asOf.date
-        ? buildCurveMove(reference, asOf, pair, shapeToleranceBps)
-        : null;
-      const spreadBps = currentSpreadForPair(asOf, pair);
+): CurveRegimePoint[] => {
+  // Regime labels describe non-overlapping calendar periods, not a rolling label for
+  // every daily observation. This preserves the interpretation of a weekly/monthly move.
+  const periodEnds = new Map<string, HistoricalRow>();
 
-      return move && isNumber(spreadBps)
-        ? [
-            {
-              date: asOf.date,
-              comparisonDate: move.comparisonDate,
-              spreadBps,
-              spreadDeltaBps: move.spreadDeltaBps,
-              levelDeltaBps: move.levelDeltaBps,
-              shapeToleranceBps: move.shapeToleranceBps,
-              type: move.type
-            }
-          ]
-        : [];
-    });
+  rows
+    .filter((row) => hasPairValues(row, pair))
+    .forEach((row) => periodEnds.set(calendarPeriodKey(row.date, horizon), row));
+
+  const anchors = [...periodEnds.values()].sort((left, right) => left.date.localeCompare(right.date));
+  const terminalAnchorIndex = anchors.length - 1;
+  const shapeToleranceBps = curveMoveShapeToleranceBps[horizon];
+
+  return anchors.flatMap((asOf, index) => {
+    const reference = anchors[index - 1];
+    const isUnfinishedTerminalPeriod = index === terminalAnchorIndex && !isTerminalPeriodComplete(asOf.date, horizon);
+
+    if (
+      !reference ||
+      reference.date < startDate ||
+      asOf.date < startDate ||
+      asOf.date > endDate ||
+      isUnfinishedTerminalPeriod ||
+      !intervalIsPlausiblyContinuous(reference.date, asOf.date, horizon)
+    ) {
+      return [];
+    }
+
+    const move = buildCurveMove(reference, asOf, pair, shapeToleranceBps);
+    const spreadBps = currentSpreadForPair(asOf, pair);
+
+    return move && isNumber(spreadBps)
+      ? [
+          {
+            date: asOf.date,
+            comparisonDate: move.comparisonDate,
+            spreadBps,
+            shortDeltaBps: move.shortDeltaBps,
+            longDeltaBps: move.longDeltaBps,
+            spreadDeltaBps: move.spreadDeltaBps,
+            levelDeltaBps: move.levelDeltaBps,
+            shapeToleranceBps: move.shapeToleranceBps,
+            type: move.type,
+            rationale: move.rationale
+          }
+        ]
+      : [];
+  });
+};
 
 const mean = (values: number[]) => {
   if (!values.length) return null;
@@ -515,7 +580,11 @@ const valueChangeMonths = (
     .reverse()
     .find((row) => row.date <= target && typeof row[key] === "number");
 
-  return prior && typeof prior[key] === "number" ? (last[key] - prior[key]) * 100 : null;
+  if (!prior || typeof prior[key] !== "number" || !isWithinObservationGap(prior.date, target)) {
+    return null;
+  }
+
+  return Math.round((last[key] - prior[key]) * 1000) / 10;
 };
 
 export const buildStats = (rows: HistoricalRow[], referenceRows = rows) =>

@@ -1,6 +1,8 @@
 import { parse } from "csv-parse/sync";
 import {
   FED_H15_TREASURY_CMT_URL,
+  HISTORICAL_30Y_UNAVAILABLE_END,
+  HISTORICAL_30Y_UNAVAILABLE_START,
   HISTORICAL_MATURITIES,
   HISTORICAL_SOURCE,
   RESEARCH_SPREADS
@@ -31,11 +33,13 @@ const fetchWithTimeout = async (url, timeoutMs = 20000) => {
 };
 
 const toNumber = (value) => {
-  if (value === null || value === undefined || value === "" || value === "ND" || value === "n.a.") {
+  const normalized = typeof value === "string" ? value.trim() : value;
+
+  if (normalized === null || normalized === undefined || normalized === "" || normalized === "ND" || normalized === "n.a.") {
     return null;
   }
 
-  const numeric = Number(value);
+  const numeric = Number(normalized);
   return Number.isFinite(numeric) ? numeric : null;
 };
 
@@ -46,6 +50,9 @@ const round = (value, digits = 3) => {
 };
 
 const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const isThirtyYearUnavailable = (date) =>
+  date >= HISTORICAL_30Y_UNAVAILABLE_START && date <= HISTORICAL_30Y_UNAVAILABLE_END;
 
 const buildSpreadValues = (row) => {
   for (const spread of RESEARCH_SPREADS) {
@@ -82,11 +89,15 @@ const parseFedCsv = (csv) => {
         row[maturity.key] = typeof index === "number" ? toNumber(record[index]) : null;
       }
 
+      if (isThirtyYearUnavailable(row.date)) {
+        row["30Y"] = null;
+      }
+
       return buildSpreadValues(row);
     })
     .filter((row) => HISTORICAL_MATURITIES.some((maturity) => typeof row[maturity.key] === "number"));
 
-  return rows;
+  return rows.sort((left, right) => left.date.localeCompare(right.date));
 };
 
 const treasuryLatestToResearchRow = (treasuryData) => {
@@ -160,7 +171,7 @@ export async function getHistoricalYieldData() {
       recordEndDate: rows.at(-1)?.date ?? null,
       supplementalSource,
       note:
-        "30Y data has a historical gap around the 2002-2006 Treasury discontinuation/reintroduction period; missing observations are preserved as nulls."
+        "The observed 30Y CMT is intentionally unavailable from February 18, 2002 through February 8, 2006, the Treasury discontinuation/reintroduction interval; dependent 30Y spreads are null for the same period."
     },
     maturities: HISTORICAL_MATURITIES.map(({ field, ...maturity }) => maturity),
     spreads: RESEARCH_SPREADS,
@@ -168,4 +179,3 @@ export async function getHistoricalYieldData() {
     rows
   };
 }
-
