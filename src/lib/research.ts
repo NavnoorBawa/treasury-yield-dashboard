@@ -362,9 +362,9 @@ export const movementRationale = (type: CurveMoveType, pair: CurvePair) => {
     case "Bull flattening":
       return `${segment} flattened while the pair's average yield level fell. This is consistent with the long tenor rallying faster, but does not identify a single economic cause.`;
     case "Parallel shift higher":
-      return `${segment} moved near-parallel with yields higher. The pair's curve change remained inside the stated classification tolerance.`;
+      return `${segment} moved near-parallel with yields higher. The pair's slope change remained inside the stated classification tolerance.`;
     case "Parallel shift lower":
-      return `${segment} moved near-parallel with yields lower. The pair's curve change remained inside the stated classification tolerance.`;
+      return `${segment} moved near-parallel with yields lower. The pair's slope change remained inside the stated classification tolerance.`;
   }
 };
 

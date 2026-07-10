@@ -359,10 +359,10 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
         <div className="regime-summary__tile">
           <span>Selected period regime</span>
           {analysisMove ? <RegimeBadge type={analysisMove.type} /> : <strong>n/a</strong>}
-          <small>{analysisMove ? `${intervalLabel(analysisMove.comparisonDate, asOfRecordDate)} · curve change ${formatBps(analysisMove.spreadDeltaBps)}` : "Select a valid reference period"}</small>
+          <small>{analysisMove ? `${intervalLabel(analysisMove.comparisonDate, asOfRecordDate)} · slope change ${formatBps(analysisMove.spreadDeltaBps)}` : "Select a valid reference period"}</small>
         </div>
         <div className="regime-summary__tile">
-          <span>Visible-range net curve change</span>
+          <span>Visible-range net slope change</span>
           <strong>{formatBps(rangeMove?.spreadDeltaBps)}</strong>
           <small>{rangeMove ? `${rangeMove.type} · ${formatDate(rangeMove.comparisonDate)} to ${formatDate(endDate)}` : "Insufficient pair observations"}</small>
         </div>
@@ -375,10 +375,10 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
 
       <div className="regime-chart">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={spreadSeries} margin={{ top: 14, right: 20, bottom: 6, left: -8 }}>
+          <LineChart data={spreadSeries} margin={{ top: 14, right: 20, bottom: 6, left: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 6" />
             <XAxis dataKey="date" minTickGap={42} tickFormatter={compactDateTick} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
-            <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
+            <YAxis tickLine={false} axisLine={false} width={66} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
             <Tooltip content={<SpreadTooltip />} />
             <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
             {analysisMove && analysisAsOf ? (
@@ -464,7 +464,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
             <div>
               <span>As-of decomposition · {analysisWindowLabel(analysisWindow)}</span>
               <RegimeBadge type={analysisMove.type} />
-              <small>{intervalLabel(analysisMove.comparisonDate, asOfRecordDate)} · {analysisToleranceBps} bps curve-change tolerance</small>
+              <small>{intervalLabel(analysisMove.comparisonDate, asOfRecordDate)} · {analysisToleranceBps} bps slope-change tolerance</small>
             </div>
             <p>{analysisMove.rationale}</p>
           </div>
@@ -472,7 +472,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
             <div><dt>{pair.shortKey} yield change</dt><dd>{formatBps(analysisMove.shortDeltaBps)}</dd></div>
             <div><dt>{pair.longKey} yield change</dt><dd>{formatBps(analysisMove.longDeltaBps)}</dd></div>
             <div><dt>Pair average move</dt><dd>{formatBps(analysisMove.levelDeltaBps)}</dd></div>
-            <div><dt>Pair curve change</dt><dd>{formatBps(analysisMove.spreadDeltaBps)}</dd></div>
+            <div><dt>Pair slope change</dt><dd>{formatBps(analysisMove.spreadDeltaBps)}</dd></div>
           </dl>
         </section>
       ) : null}
@@ -480,7 +480,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
       <div className="spread-note">
         <Info size={15} aria-hidden="true" />
         <span>
-          The chart highlight is the selected date-to-date comparison; the ribbon is completed calendar-period history. Pair average move is the average of the selected-tenor moves; pair curve change is long tenor minus short tenor. Bull/bear follows the pair average move. Near-parallel applies only when the pair&apos;s curve change is within the stated tolerance, not to the full Treasury curve.
+          The chart highlight is the selected date-to-date comparison; the ribbon is completed calendar-period history. Pair average move is the average of the selected-tenor yield changes; pair slope change is the change in the long-minus-short spread. Bull/bear follows the pair average move. Near-parallel applies only when the pair&apos;s slope change is within the stated tolerance, not to the full Treasury curve.
         </span>
       </div>
     </article>
