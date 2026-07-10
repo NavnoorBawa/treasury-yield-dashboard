@@ -16,7 +16,6 @@ export function CurveMatrix({ data }: CurveMatrixProps) {
           <p className="eyebrow">Curve matrix · D/D changes</p>
           <h2>Core Curve Spreads</h2>
         </div>
-        <span className="panel__meta">All 6 2Y/5Y/10Y/30Y pairs</span>
       </div>
 
       <div className="curve-matrix" aria-label="Current Treasury curve spreads">
@@ -40,7 +39,7 @@ export function CurveMatrix({ data }: CurveMatrixProps) {
       <div className="curve-matrix__source">
         <span>
           <Database size={14} aria-hidden="true" />
-          Record {formatDate(data.source.recordDate)} · Prior {formatDate(data.source.previousRecordDate)}
+          CMT fixing {formatDate(data.source.recordDate)} · Prior {formatDate(data.source.previousRecordDate)}
         </span>
         <span>
           <TimerReset size={14} aria-hidden="true" />
