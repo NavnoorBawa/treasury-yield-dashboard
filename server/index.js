@@ -27,10 +27,9 @@ app.use(
         fontSrc: ["'self'"],
         formAction: ["'self'"],
         frameAncestors: ["'none'"],
-        frameSrc: ["https://www.tradingview-widget.com"],
         imgSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
-        scriptSrc: ["'self'", "https://s3.tradingview.com"],
+        scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"]
       }
     },
