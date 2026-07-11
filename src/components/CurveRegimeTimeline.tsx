@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { Info } from "lucide-react";
+import { Info, MoveRight, TrendingDown, TrendingUp } from "lucide-react";
 import { formatBps, formatDate } from "../lib/format";
 import {
   buildCurveMoveForDates,
@@ -79,33 +79,54 @@ const typeColor: Record<CurveMoveType, string> = {
   "Parallel shift lower": "var(--regime-parallel-lower)"
 };
 
+type RegimeShape = "steepening" | "flattening" | "parallel";
+
+const regimeShape = (type: CurveMoveType): RegimeShape => {
+  if (type.includes("steepening")) return "steepening";
+  if (type.includes("flattening")) return "flattening";
+  return "parallel";
+};
+
+const regimeStrokeDash: Record<CurveMoveType, string | undefined> = {
+  "Bull steepening": undefined,
+  "Bear steepening": undefined,
+  "Bull flattening": "7 3",
+  "Bear flattening": "7 3",
+  "Parallel shift higher": "1 4",
+  "Parallel shift lower": "1 4"
+};
+
 const regimeColorGroups: Array<{
   label: string;
+  shape: RegimeShape;
   rule: (toleranceBps: number, spreadLabel: string) => string;
   moves: Array<{ type: CurveMoveType; label: string; direction: string }>;
 }> = [
   {
     label: "Steepening",
+    shape: "steepening",
     rule: (toleranceBps, spreadLabel) => `Δ${spreadLabel} > +${toleranceBps} bps`,
     moves: [
-      { type: "Bull steepening", label: "Bull", direction: "Pair avg < 0" },
-      { type: "Bear steepening", label: "Bear", direction: "Pair avg ≥ 0" }
+      { type: "Bull steepening", label: "Bull", direction: "Pair avg Δ < 0" },
+      { type: "Bear steepening", label: "Bear", direction: "Pair avg Δ ≥ 0" }
     ]
   },
   {
     label: "Flattening",
+    shape: "flattening",
     rule: (toleranceBps, spreadLabel) => `Δ${spreadLabel} < -${toleranceBps} bps`,
     moves: [
-      { type: "Bull flattening", label: "Bull", direction: "Pair avg < 0" },
-      { type: "Bear flattening", label: "Bear", direction: "Pair avg ≥ 0" }
+      { type: "Bull flattening", label: "Bull", direction: "Pair avg Δ < 0" },
+      { type: "Bear flattening", label: "Bear", direction: "Pair avg Δ ≥ 0" }
     ]
   },
   {
     label: "Near-parallel",
+    shape: "parallel",
     rule: (toleranceBps, spreadLabel) => `|Δ${spreadLabel}| ≤ ${toleranceBps} bps`,
     moves: [
-      { type: "Parallel shift lower", label: "Lower", direction: "Pair avg < 0" },
-      { type: "Parallel shift higher", label: "Higher", direction: "Pair avg ≥ 0" }
+      { type: "Parallel shift lower", label: "Lower", direction: "Pair avg Δ < 0" },
+      { type: "Parallel shift higher", label: "Higher", direction: "Pair avg Δ ≥ 0" }
     ]
   }
 ];
@@ -206,10 +227,17 @@ function SpreadTooltip({ active, payload }: SpreadTooltipProps) {
 function RegimeBadge({ type }: { type: CurveMoveType }) {
   return (
     <span className="regime-badge" style={regimeStyle(type)}>
-      <i aria-hidden="true" />
-      {type}
+      <span className="regime-badge__glyph" aria-hidden="true"><RegimeGlyph type={type} /></span>
+      <span>{type}</span>
     </span>
   );
+}
+
+function RegimeGlyph({ type, size = 13 }: { type: CurveMoveType; size?: number }) {
+  const shape = regimeShape(type);
+  if (shape === "steepening") return <TrendingUp size={size} strokeWidth={2.2} />;
+  if (shape === "flattening") return <TrendingDown size={size} strokeWidth={2.2} />;
+  return <MoveRight size={size} strokeWidth={2.2} />;
 }
 
 function HelpTip({ label }: { label: string }) {
@@ -409,6 +437,36 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
         </div>
       </div>
 
+      <div className="regime-key__intro" id="regime-color-key-title">
+        <span><strong>Regime encoding</strong> · Cool = average yield lower · Warm = average yield higher/unchanged · Glyph and stroke = slope direction · <i aria-hidden="true" /> Gray = open</span>
+        <span>Counts: completed {noun}s</span>
+      </div>
+      <div className="regime-key" aria-labelledby="regime-color-key-title">
+        {regimeColorGroups.map((group) => (
+          <div className="regime-key__group" key={group.label} data-shape={group.shape}>
+            <div className="regime-key__heading">
+              <strong>{group.label}</strong>
+              <span>{group.rule(curveMoveShapeToleranceBps[horizon], pair.label.replaceAll(" ", ""))}</span>
+            </div>
+            <div className="regime-key__moves">
+              {group.moves.map((move) => (
+                <span
+                  className="regime-key__move"
+                  key={move.type}
+                  style={regimeStyle(move.type)}
+                  aria-label={`${move.type}: ${counts[move.type]} completed ${noun} classifications`}
+                  title={move.type}
+                >
+                  <span className="regime-key__glyph" aria-hidden="true"><RegimeGlyph type={move.type} size={14} /></span>
+                  <span><strong>{move.label}</strong><small>{move.direction}</small></span>
+                  <b>{counts[move.type]}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="regime-chart">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={spreadSeries} margin={{ top: 14, right: 20, bottom: 6, left: 0 }}>
@@ -461,7 +519,8 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
                 dataKey={regimeSeriesKey(type)}
                 name={type}
                 stroke={typeColor[type]}
-                strokeWidth={3}
+                strokeWidth={3.2}
+                strokeDasharray={regimeStrokeDash[type]}
                 dot={false}
                 connectNulls={false}
                 isAnimationActive={false}
@@ -492,6 +551,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
                 type="button"
                 className={isSelected ? "regime-ribbon__segment regime-ribbon__segment--active" : "regime-ribbon__segment"}
                 style={{ ...regimeStyle(episode.type), flexGrow: episode.durationDays } as CSSProperties}
+                data-shape={regimeShape(episode.type)}
                 onClick={() => handleEpisodeSelect(episode)}
                 aria-label={label}
                 aria-pressed={isSelected}
@@ -500,36 +560,6 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
             );
           }) : <span className="regime-ribbon__empty">No completed calendar {noun}s</span>}
         </div>
-      </div>
-
-      <div className="regime-key__intro" id="regime-color-key-title">
-        <span><strong>Color logic</strong> · Cool hues: pair average &lt; 0 · Warm hues: pair average ≥ 0 · <i aria-hidden="true" /> Gray: open/unclassified interval</span>
-        <span>Counts: completed {noun}s</span>
-      </div>
-      <div className="regime-key" aria-labelledby="regime-color-key-title">
-        {regimeColorGroups.map((group) => (
-          <div className="regime-key__group" key={group.label}>
-            <div className="regime-key__heading">
-              <strong>{group.label}</strong>
-              <span>{group.rule(curveMoveShapeToleranceBps[horizon], pair.label.replaceAll(" ", ""))}</span>
-            </div>
-            <div className="regime-key__moves">
-              {group.moves.map((move) => (
-                <span
-                  className="regime-key__move"
-                  key={move.type}
-                  style={regimeStyle(move.type)}
-                  aria-label={`${move.type}: ${counts[move.type]} completed ${noun} classifications`}
-                  title={move.type}
-                >
-                  <i aria-hidden="true" />
-                  <span><strong>{move.label}</strong><small>{move.direction}</small></span>
-                  <b>{counts[move.type]}</b>
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
 
       {analysisMove ? (
