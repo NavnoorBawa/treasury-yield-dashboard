@@ -15,12 +15,14 @@ import {
 import {
   CalendarRange,
   ChartNoAxesCombined,
+  Check,
   Download,
   Focus,
   GitCompareArrows,
   History,
   Info,
   Layers3,
+  Link2,
   RotateCcw
 } from "lucide-react";
 import { CurveMatrix } from "./CurveMatrix";
@@ -66,6 +68,84 @@ const historyViews: Array<{ id: HistoryView; label: string }> = [
   { id: "events", label: "Event windows" },
   { id: "statistics", label: "Statistics" }
 ];
+
+interface InitialWorkspaceState {
+  activeTab: WorkspaceTab;
+  historyView: HistoryView;
+  preset: RangePreset;
+  range: { start: string; end: string };
+  selectedSpread: SpreadKey;
+  selectedPairKey: SpreadKey;
+  regimeHorizon: CurveMoveHorizon;
+  comparisonAsOf: string;
+  comparisonReference: string;
+}
+
+const workspaceStateQueryKeys = ["view", "range", "from", "to", "section", "spread", "pair", "interval", "asof", "ref"];
+
+const workspaceTabFromQuery: Record<string, WorkspaceTab> = {
+  market: "snapshot",
+  snapshot: "snapshot",
+  compare: "comparison",
+  comparison: "comparison",
+  history: "history",
+  regimes: "regimes"
+};
+
+const workspaceTabToQuery: Record<WorkspaceTab, string> = {
+  snapshot: "market",
+  comparison: "compare",
+  history: "history",
+  regimes: "regimes"
+};
+
+const isIsoDate = (value: string | null): value is string => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+const readAllowedValue = <T extends string>(value: string | null, options: readonly T[], fallback: T): T =>
+  value && options.includes(value as T) ? value as T : fallback;
+
+const readWorkspaceState = (): InitialWorkspaceState => {
+  if (typeof window === "undefined") {
+    return {
+      activeTab: "snapshot",
+      historyView: "charts",
+      preset: "10Y",
+      range: { start: "", end: "" },
+      selectedSpread: "10Y2Y",
+      selectedPairKey: "10Y2Y",
+      regimeHorizon: "1M",
+      comparisonAsOf: "",
+      comparisonReference: ""
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const from = params.get("from");
+  const to = params.get("to");
+  const rawPreset = params.get("range")?.toUpperCase() ?? null;
+  const customRangeIsValid = rawPreset === "CUSTOM" && isIsoDate(from) && isIsoDate(to) && from <= to;
+  const preset = customRangeIsValid
+    ? "CUSTOM"
+    : readAllowedValue<Exclude<RangePreset, "CUSTOM">>(rawPreset, rangePresets, "10Y");
+  const pairKeys = curvePairs.map((pair) => pair.key);
+  const interval = params.get("interval")?.toLowerCase();
+
+  return {
+    activeTab: workspaceTabFromQuery[params.get("view")?.toLowerCase() ?? ""] ?? "snapshot",
+    historyView: readAllowedValue(params.get("section"), historyViews.map((view) => view.id), "charts"),
+    preset,
+    range: customRangeIsValid ? { start: from, end: to } : { start: "", end: "" },
+    selectedSpread: readAllowedValue(params.get("spread")?.toUpperCase() ?? null, spreadKeys, "10Y2Y"),
+    selectedPairKey: readAllowedValue(params.get("pair")?.toUpperCase() ?? null, pairKeys, "10Y2Y"),
+    regimeHorizon: interval === "weekly" || interval === "1w" ? "1W" : "1M",
+    comparisonAsOf: isIsoDate(params.get("asof")) ? params.get("asof") as string : "",
+    comparisonReference: isIsoDate(params.get("ref")) ? params.get("ref") as string : ""
+  };
+};
 
 const getAdjacentTab = <T extends string>(items: T[], current: T, key: string) => {
   const currentIndex = items.indexOf(current);
@@ -156,32 +236,92 @@ interface ResearchWorkbenchProps {
 }
 
 export function ResearchWorkbench({ currentData, currentLoading, currentError }: ResearchWorkbenchProps) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("snapshot");
-  const [historyView, setHistoryView] = useState<HistoryView>("charts");
+  const [initialWorkspaceState] = useState(readWorkspaceState);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialWorkspaceState.activeTab);
+  const [historyView, setHistoryView] = useState<HistoryView>(initialWorkspaceState.historyView);
   const shouldLoadHistory = activeTab !== "snapshot";
   const { data, error, isLoading } = useHistoricalYields(shouldLoadHistory);
-  const [preset, setPreset] = useState<RangePreset>("10Y");
-  const [range, setRange] = useState({ start: "", end: "" });
-  const [selectedSpread, setSelectedSpread] = useState<SpreadKey>("10Y2Y");
-  const [selectedPairKey, setSelectedPairKey] = useState<SpreadKey>("10Y2Y");
-  const [regimeHorizon, setRegimeHorizon] = useState<CurveMoveHorizon>("1M");
-  const [comparisonAsOf, setComparisonAsOf] = useState("");
-  const [comparisonReference, setComparisonReference] = useState("");
+  const [preset, setPreset] = useState<RangePreset>(initialWorkspaceState.preset);
+  const [range, setRange] = useState(initialWorkspaceState.range);
+  const [selectedSpread, setSelectedSpread] = useState<SpreadKey>(initialWorkspaceState.selectedSpread);
+  const [selectedPairKey, setSelectedPairKey] = useState<SpreadKey>(initialWorkspaceState.selectedPairKey);
+  const [regimeHorizon, setRegimeHorizon] = useState<CurveMoveHorizon>(initialWorkspaceState.regimeHorizon);
+  const [comparisonAsOf, setComparisonAsOf] = useState(initialWorkspaceState.comparisonAsOf);
+  const [comparisonReference, setComparisonReference] = useState(initialWorkspaceState.comparisonReference);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
   useEffect(() => {
     if (!data?.rows.length) return;
+    const firstDate = data.rows[0]?.date ?? "";
     const latestDate = data.rows.at(-1)?.date ?? "";
+    const normalizedAsOf = comparisonAsOf >= firstDate && comparisonAsOf <= latestDate ? comparisonAsOf : latestDate;
+    const defaultReference = normalizedAsOf ? getComparisonTargetDate(normalizedAsOf, "1Y") : firstDate;
+    const normalizedReference = comparisonReference >= firstDate && comparisonReference < normalizedAsOf
+      ? comparisonReference
+      : defaultReference < firstDate ? firstDate : defaultReference;
 
-    if (!range.start || !range.end) {
-      setRange(getPresetRange("10Y", data.rows));
+    if (preset === "CUSTOM" && range.start && range.end) {
+      const normalizedStart = range.start < firstDate ? firstDate : range.start;
+      const normalizedEnd = range.end > latestDate ? latestDate : range.end;
+      if (normalizedStart > normalizedEnd) {
+        setPreset("10Y");
+        setRange(getPresetRange("10Y", data.rows));
+      } else if (normalizedStart !== range.start || normalizedEnd !== range.end) {
+        setRange({ start: normalizedStart, end: normalizedEnd });
+      }
+    } else if (!range.start || !range.end) {
+      const initialPreset = preset === "CUSTOM" ? "10Y" : preset;
+      setRange(getPresetRange(initialPreset, data.rows));
+      if (preset === "CUSTOM") setPreset("10Y");
     }
-    if (!comparisonAsOf) {
-      setComparisonAsOf(latestDate);
+    if (comparisonAsOf !== normalizedAsOf) setComparisonAsOf(normalizedAsOf);
+    if (comparisonReference !== normalizedReference) setComparisonReference(normalizedReference);
+  }, [comparisonAsOf, comparisonReference, data?.rows, preset, range.end, range.start]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    workspaceStateQueryKeys.forEach((key) => url.searchParams.delete(key));
+
+    if (activeTab !== "snapshot") url.searchParams.set("view", workspaceTabToQuery[activeTab]);
+
+    if (activeTab === "comparison" || activeTab === "history" || activeTab === "regimes") {
+      if (preset === "CUSTOM" && range.start && range.end) {
+        url.searchParams.set("range", "custom");
+        url.searchParams.set("from", range.start);
+        url.searchParams.set("to", range.end);
+      } else if (preset !== "10Y" && preset !== "CUSTOM") {
+        url.searchParams.set("range", preset);
+      }
     }
-    if (!comparisonReference && latestDate) {
-      setComparisonReference(getComparisonTargetDate(latestDate, "1Y"));
+
+    if (activeTab === "history") {
+      if (historyView !== "charts") url.searchParams.set("section", historyView);
+      if (selectedSpread !== "10Y2Y") url.searchParams.set("spread", selectedSpread);
     }
-  }, [comparisonAsOf, comparisonReference, data?.rows, range.end, range.start]);
+
+    if (activeTab === "regimes") {
+      if (selectedPairKey !== "10Y2Y") url.searchParams.set("pair", selectedPairKey);
+      if (regimeHorizon === "1W") url.searchParams.set("interval", "weekly");
+    }
+
+    if (activeTab === "comparison") {
+      if (comparisonAsOf) url.searchParams.set("asof", comparisonAsOf);
+      if (comparisonReference) url.searchParams.set("ref", comparisonReference);
+    }
+
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+    const activeLabel = workspaceTabs.find((tab) => tab.id === activeTab)?.label;
+    document.title = activeTab === "snapshot"
+      ? "U.S. Treasury Yield Dashboard"
+      : `${activeLabel} · U.S. Treasury Yield Dashboard`;
+  }, [activeTab, comparisonAsOf, comparisonReference, historyView, preset, range.end, range.start, regimeHorizon, selectedPairKey, selectedSpread]);
+
+  useEffect(() => {
+    if (copyStatus === "idle") return undefined;
+    const timeout = window.setTimeout(() => setCopyStatus("idle"), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [copyStatus]);
 
   const selectedRows = useMemo(() => {
     if (!data?.rows.length || !range.start || !range.end) return [];
@@ -284,6 +424,27 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     URL.revokeObjectURL(url);
   };
 
+  const copyCurrentView = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(window.location.href);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = window.location.href;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("Copy command was rejected");
+      }
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
+
   const renderResearchControls = () => (
     <div className="research-controls">
       <div className="segmented-control" aria-label="Date range presets">
@@ -340,7 +501,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                 <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 6" />
                 <XAxis dataKey="date" minTickGap={42} tickFormatter={compactDateTick} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
                 <YAxis tickLine={false} axisLine={false} width={50} domain={["dataMin - 0.35", "dataMax + 0.35"]} tickFormatter={(value) => `${Number(value).toFixed(1)}%`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
-                <Tooltip content={<MultiTooltip unit="yield" />} />
+                <Tooltip content={<MultiTooltip unit="yield" />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
                 <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ color: "var(--muted)" }} />
                 {chartEventMarkers.map(({ event, markerDate }) => <ReferenceLine key={event.id} x={markerDate} stroke="var(--event-line)" strokeDasharray="4 6" />)}
                 {maturityKeys.map((key) => <Line key={key} type="linear" dataKey={key} name={key} connectNulls={false} dot={false} stroke={yieldColors[key]} strokeWidth={key === "10Y" ? 2.4 : 1.8} isAnimationActive={false} />)}
@@ -378,7 +539,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                 <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 6" />
                 <XAxis dataKey="date" minTickGap={32} tickFormatter={compactDateTick} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 11 }} />
                 <YAxis tickLine={false} axisLine={false} width={66} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 11 }} />
-                <Tooltip content={<MultiTooltip unit="bps" />} />
+                <Tooltip content={<MultiTooltip unit="bps" />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
                 <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
                 <Area type="linear" dataKey={selectedSpread} name={selectedSpreadMeta?.label ?? selectedSpread} stroke={spreadColors[selectedSpread]} strokeWidth={2} fill="url(#spread-gradient)" dot={false} isAnimationActive={false} />
               </AreaChart>
@@ -498,7 +659,20 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
               <h2>{activeTab === "comparison" ? "Historical Yield Curve Comparison" : activeTab === "regimes" ? "Curve Movement Regimes" : "Historical Treasury Regime Analysis"}</h2>
               <p>{activeTab === "comparison" ? "Compare complete Treasury curves from any two official business-day observations." : activeTab === "regimes" ? "Date-to-date two-tenor curve decomposition with completed calendar-period regime history." : "Analyze rates, spreads, event windows, and statistical behavior without leaving the workspace."}</p>
             </div>
-            <div className="research-source"><span>History: {formatDate(data.source.recordStartDate)} - {formatDate(data.source.recordEndDate)}</span><strong>{data.rows.length.toLocaleString()} daily records</strong></div>
+            <div className="research-source">
+              <span>History: {formatDate(data.source.recordStartDate)} - {formatDate(data.source.recordEndDate)}</span>
+              <strong>{data.rows.length.toLocaleString()} daily records</strong>
+              <button
+                type="button"
+                className={`workspace-copy-link${copyStatus === "copied" ? " workspace-copy-link--copied" : ""}${copyStatus === "error" ? " workspace-copy-link--error" : ""}`}
+                onClick={copyCurrentView}
+                aria-live="polite"
+                title="Copy a link to this workspace setup"
+              >
+                {copyStatus === "copied" ? <Check size={14} aria-hidden="true" /> : <Link2 size={14} aria-hidden="true" />}
+                <span>{copyStatus === "copied" ? "Copied" : copyStatus === "error" ? "Copy failed" : "Copy view"}</span>
+              </button>
+            </div>
           </div>
 
           {activeTab === "comparison" ? (

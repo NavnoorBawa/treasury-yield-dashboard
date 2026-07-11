@@ -126,7 +126,7 @@ export function YieldCurveComparison({
                   tickFormatter={(value) => `${Number(value).toFixed(1)}%`}
                   tick={{ fill: "var(--muted)", fontSize: 12 }}
                 />
-                <Tooltip content={<ComparisonTooltip />} />
+                <Tooltip content={<ComparisonTooltip />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
                 <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ color: "var(--muted)" }} />
                 <Line
                   type="linear"

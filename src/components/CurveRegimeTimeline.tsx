@@ -533,7 +533,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 6" />
             <XAxis dataKey="date" minTickGap={42} tickFormatter={compactDateTick} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
             <YAxis tickLine={false} axisLine={false} width={76} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
-            <Tooltip content={<SpreadTooltip selectedWindow={selectedWindow} />} />
+            <Tooltip content={<SpreadTooltip selectedWindow={selectedWindow} />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
             <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
             {analysisMove && analysisAsOf ? (
               <ReferenceArea
