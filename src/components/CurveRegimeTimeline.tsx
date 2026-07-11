@@ -40,7 +40,14 @@ interface SpreadChartPoint {
   date: string;
   spreadBps: number | null;
   regimeType: CurveMoveType | null;
-  [seriesKey: string]: string | number | null;
+  selectedSpreadBps?: number | null;
+  [seriesKey: string]: string | number | null | undefined;
+}
+
+interface SelectedRegimeWindow {
+  type: CurveMoveType;
+  startDate: string;
+  endDate: string;
 }
 
 interface RegimeEpisode {
@@ -94,6 +101,15 @@ const regimeStrokeDash: Record<CurveMoveType, string | undefined> = {
   "Bear flattening": "7 3",
   "Parallel shift higher": "1 4",
   "Parallel shift lower": "1 4"
+};
+
+const regimeDomKey: Record<CurveMoveType, string> = {
+  "Bull steepening": "bull-steepening",
+  "Bear steepening": "bear-steepening",
+  "Bull flattening": "bull-flattening",
+  "Bear flattening": "bear-flattening",
+  "Parallel shift lower": "parallel-lower",
+  "Parallel shift higher": "parallel-higher"
 };
 
 const regimeColorGroups: Array<{
@@ -207,18 +223,24 @@ const buildEpisodes = (timeline: CurveRegimePoint[]): RegimeEpisode[] => {
 interface SpreadTooltipProps {
   active?: boolean;
   payload?: Array<{ payload?: SpreadChartPoint }>;
+  selectedWindow: SelectedRegimeWindow | null;
 }
 
-function SpreadTooltip({ active, payload }: SpreadTooltipProps) {
+function SpreadTooltip({ active, payload, selectedWindow }: SpreadTooltipProps) {
   const point = payload?.[0]?.payload;
   if (!active || !point || point.spreadBps === null) return null;
+  const isSelected = Boolean(selectedWindow && point.date >= selectedWindow.startDate && point.date <= selectedWindow.endDate);
+  const accentType = isSelected ? selectedWindow?.type : point.regimeType;
 
   return (
-    <div className="chart-tooltip chart-tooltip--regime" style={point.regimeType ? regimeStyle(point.regimeType) : undefined}>
+    <div className="chart-tooltip chart-tooltip--regime" style={accentType ? regimeStyle(accentType) : undefined}>
       <span className="chart-tooltip__label">{formatDate(point.date)}</span>
       <div className="chart-tooltip__rows">
         <div className="chart-tooltip__row"><span>Curve spread</span><strong>{point.spreadBps.toFixed(1)} bps</strong></div>
-        {point.regimeType ? <div className="chart-tooltip__row"><span>Completed-period regime</span><RegimeBadge type={point.regimeType} /></div> : null}
+        {isSelected && selectedWindow ? <div className="chart-tooltip__row"><span>Selected comparison</span><RegimeBadge type={selectedWindow.type} /></div> : null}
+        {point.regimeType
+          ? <div className="chart-tooltip__row"><span>Calendar-period regime</span><RegimeBadge type={point.regimeType} /></div>
+          : <div className="chart-tooltip__row"><span>Calendar period</span><strong>Open / unclassified</strong></div>}
       </div>
     </div>
   );
@@ -281,12 +303,14 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
   const [analysisWindow, setAnalysisWindow] = useState<AnalysisWindow>("1M");
   const [customReferenceDate, setCustomReferenceDate] = useState(startDate);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const [pinnedRegime, setPinnedRegime] = useState<CurveMoveType | null>(null);
 
   useEffect(() => {
     setAsOfDate((current) => !current || current < startDate || current > endDate ? endDate : current);
     setCustomReferenceDate((current) => !current || current < startDate || current >= endDate ? startDate : current);
     setSelectedEpisodeId(null);
-  }, [endDate, pair.key, startDate]);
+    setPinnedRegime(null);
+  }, [endDate, horizon, pair.key, startDate]);
 
   const analysisReferenceTarget = useMemo(() => {
     if (analysisWindow === "RANGE") return startDate;
@@ -316,6 +340,22 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
     () => Object.fromEntries(curveMoveTypes.map((type) => [type, timeline.filter((point) => point.type === type).length])) as Record<CurveMoveType, number>,
     [timeline]
   );
+  const selectedWindow = useMemo<SelectedRegimeWindow | null>(
+    () => analysisMove && analysisAsOf
+      ? { type: analysisMove.type, startDate: analysisMove.comparisonDate, endDate: analysisAsOf.date }
+      : null,
+    [analysisAsOf, analysisMove]
+  );
+  const chartSeries = useMemo<SpreadChartPoint[]>(
+    () => spreadSeries.map((point) => ({
+      ...point,
+      selectedSpreadBps: selectedWindow && point.date >= selectedWindow.startDate && point.date <= selectedWindow.endDate
+        ? point.spreadBps
+        : null
+    })),
+    [selectedWindow, spreadSeries]
+  );
+  const highlightedRegime = pinnedRegime;
 
   if (!spreadSeries.some((point) => point.spreadBps !== null)) {
     return <div className="empty-state">No valid observations are available for this segment and range.</div>;
@@ -336,7 +376,7 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
   };
 
   return (
-    <article className="panel regime-panel">
+    <article className="panel regime-panel" data-pinned-regime={pinnedRegime ? regimeDomKey[pinnedRegime] : undefined}>
       <div className="panel__header">
         <div>
           <p className="eyebrow">Historical curve regimes</p>
@@ -439,7 +479,17 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
 
       <div className="regime-key__intro" id="regime-color-key-title">
         <span><strong>Regime encoding</strong> · Cool = average yield lower · Warm = average yield higher/unchanged · Glyph and stroke = slope direction · <i aria-hidden="true" /> Gray = open</span>
-        <span>Counts: completed {noun}s</span>
+        <div className="regime-key__scope">
+          <button
+            type="button"
+            className={!pinnedRegime ? "regime-key__all regime-key__all--active" : "regime-key__all"}
+            aria-pressed={!pinnedRegime}
+            onClick={() => setPinnedRegime(null)}
+          >
+            All regimes
+          </button>
+          <span>Counts: completed {noun}s</span>
+        </div>
       </div>
       <div className="regime-key" aria-labelledby="regime-color-key-title">
         {regimeColorGroups.map((group) => (
@@ -449,19 +499,29 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
               <span>{group.rule(curveMoveShapeToleranceBps[horizon], pair.label.replaceAll(" ", ""))}</span>
             </div>
             <div className="regime-key__moves">
-              {group.moves.map((move) => (
-                <span
-                  className="regime-key__move"
-                  key={move.type}
-                  style={regimeStyle(move.type)}
-                  aria-label={`${move.type}: ${counts[move.type]} completed ${noun} classifications`}
-                  title={move.type}
-                >
-                  <span className="regime-key__glyph" aria-hidden="true"><RegimeGlyph type={move.type} size={14} /></span>
-                  <span><strong>{move.label}</strong><small>{move.direction}</small></span>
-                  <b>{counts[move.type]}</b>
-                </span>
-              ))}
+              {group.moves.map((move) => {
+                const isPinned = pinnedRegime === move.type;
+                const isHighlighted = highlightedRegime === move.type;
+                const isMuted = highlightedRegime !== null && !isHighlighted;
+
+                return (
+                  <button
+                    type="button"
+                    className={`regime-key__move${isPinned ? " regime-key__move--pinned" : ""}${isHighlighted ? " regime-key__move--highlighted" : ""}${isMuted ? " regime-key__move--muted" : ""}`}
+                    key={move.type}
+                    style={regimeStyle(move.type)}
+                    data-regime={regimeDomKey[move.type]}
+                    aria-label={`${move.type}: ${counts[move.type]} completed ${noun} classifications. ${isPinned ? "Remove filter" : "Isolate regime"}.`}
+                    aria-pressed={isPinned}
+                    title={`${move.type} · click to isolate`}
+                    onClick={() => setPinnedRegime((current) => current === move.type ? null : move.type)}
+                  >
+                    <span className="regime-key__glyph" aria-hidden="true"><RegimeGlyph type={move.type} size={14} /></span>
+                    <span><strong>{move.label}</strong><small>{move.direction}</small></span>
+                    <b>{counts[move.type]}</b>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -469,30 +529,32 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
 
       <div className="regime-chart">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={spreadSeries} margin={{ top: 14, right: 20, bottom: 6, left: 0 }}>
+          <LineChart data={chartSeries} margin={{ top: 14, right: 20, bottom: 6, left: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 6" />
             <XAxis dataKey="date" minTickGap={42} tickFormatter={compactDateTick} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
             <YAxis tickLine={false} axisLine={false} width={76} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
-            <Tooltip content={<SpreadTooltip />} />
+            <Tooltip content={<SpreadTooltip selectedWindow={selectedWindow} />} />
             <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
             {analysisMove && analysisAsOf ? (
               <ReferenceArea
                 x1={analysisMove.comparisonDate}
                 x2={analysisAsOf.date}
                 fill={typeColor[analysisMove.type]}
-                fillOpacity={0.12}
+                fillOpacity={0.08}
                 stroke={typeColor[analysisMove.type]}
-                strokeOpacity={0.38}
+                strokeOpacity={0.55}
                 strokeDasharray="3 4"
                 ifOverflow="hidden"
               />
             ) : null}
             <Line
               type="linear"
+              className="regime-chart__base-outline"
               dataKey="spreadBps"
               name={`${pair.label} outline`}
               stroke="var(--chart-path-outline)"
               strokeWidth={5}
+              strokeOpacity={highlightedRegime ? 0.45 : 1}
               dot={false}
               connectNulls={false}
               isAnimationActive={false}
@@ -502,10 +564,12 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
             />
             <Line
               type="linear"
+              className="regime-chart__base"
               dataKey="spreadBps"
               name={pair.label}
               stroke="var(--chart-regime-neutral)"
               strokeWidth={2.1}
+              strokeOpacity={highlightedRegime ? 0.22 : 1}
               dot={false}
               connectNulls={false}
               isAnimationActive={false}
@@ -516,10 +580,12 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
               <Line
                 key={type}
                 type="linear"
+                className={`regime-chart__line regime-chart__line--${regimeDomKey[type]}`}
                 dataKey={regimeSeriesKey(type)}
                 name={type}
                 stroke={typeColor[type]}
-                strokeWidth={3.2}
+                strokeWidth={highlightedRegime === type ? 4.4 : 3.2}
+                strokeOpacity={!highlightedRegime || highlightedRegime === type ? 1 : 0.1}
                 strokeDasharray={regimeStrokeDash[type]}
                 dot={false}
                 connectNulls={false}
@@ -529,6 +595,41 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
                 strokeLinejoin="round"
               />
             ))}
+            {analysisMove ? (
+              <>
+                <Line
+                  type="linear"
+                  className={`regime-chart__selection regime-chart__selection--${regimeDomKey[analysisMove.type]}`}
+                  dataKey="selectedSpreadBps"
+                  name="Selected comparison outline"
+                  stroke="var(--chart-path-outline)"
+                  strokeWidth={7}
+                  strokeOpacity={!highlightedRegime || highlightedRegime === analysisMove.type ? 1 : 0.18}
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                  legendType="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Line
+                  type="linear"
+                  className={`regime-chart__selection regime-chart__selection--${regimeDomKey[analysisMove.type]}`}
+                  dataKey="selectedSpreadBps"
+                  name={`Selected comparison · ${analysisMove.type}`}
+                  stroke={typeColor[analysisMove.type]}
+                  strokeWidth={4.2}
+                  strokeOpacity={!highlightedRegime || highlightedRegime === analysisMove.type ? 1 : 0.18}
+                  strokeDasharray={regimeStrokeDash[analysisMove.type]}
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                  legendType="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </>
+            ) : null}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -542,6 +643,8 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
           {episodes.length ? episodes.map((episode) => {
             const move = aggregateEpisodeMove(episode);
             const isSelected = episode.id === selectedEpisode?.id;
+            const isHighlighted = highlightedRegime === episode.type;
+            const isMuted = highlightedRegime !== null && !isHighlighted;
             const pluralizedPeriods = episode.points.length === 1 ? `${noun}` : `${noun}s`;
             const label = `${episode.type}, ${episode.points.length} consecutive ${pluralizedPeriods}, ${intervalLabel(episode.startDate, episode.endDate)}, slope ${formatBps(move.spreadDeltaBps)}`;
 
@@ -549,9 +652,10 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
               <button
                 key={episode.id}
                 type="button"
-                className={isSelected ? "regime-ribbon__segment regime-ribbon__segment--active" : "regime-ribbon__segment"}
+                className={`regime-ribbon__segment${isSelected ? " regime-ribbon__segment--active" : ""}${isHighlighted ? " regime-ribbon__segment--highlighted" : ""}${isMuted ? " regime-ribbon__segment--muted" : ""}`}
                 style={{ ...regimeStyle(episode.type), flexGrow: episode.durationDays } as CSSProperties}
                 data-shape={regimeShape(episode.type)}
+                data-regime={regimeDomKey[episode.type]}
                 onClick={() => handleEpisodeSelect(episode)}
                 aria-label={label}
                 aria-pressed={isSelected}
