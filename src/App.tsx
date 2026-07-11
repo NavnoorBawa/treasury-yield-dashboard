@@ -26,7 +26,7 @@ function App() {
             </div>
             <h1>U.S. Treasury Curve Monitor</h1>
             <p className="topbar__subtitle">
-              Official CMT rates, curve spreads, historical regimes, and date-to-date analysis.
+              Official CMT rates, delayed Treasury-futures prices, curve spreads, historical regimes, and date-to-date analysis.
             </p>
           </div>
         </div>
@@ -79,8 +79,8 @@ function App() {
       <ResearchWorkbench currentData={data} currentLoading={isLoading || isFetching} currentError={error} />
 
       <footer className="app-footer">
-        <span>Latest daily data: U.S. Treasury XML. Long-run history: Federal Reserve H.15 DDP.</span>
-        <span>The app checks Treasury every 15 minutes; Treasury publishes one official CMT curve per trading day.</span>
+        <span>Official daily: U.S. Treasury XML. History: Federal Reserve H.15. Futures reference: delayed Yahoo Finance/CBOT.</span>
+        <span>CMT and futures datasets remain separate; no proxy price enters official curve analytics.</span>
       </footer>
     </main>
   );

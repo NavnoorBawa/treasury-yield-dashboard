@@ -1,6 +1,6 @@
 # U.S. Treasury Yield Dashboard
 
-A clean institutional-style dashboard for U.S. Treasury Constant Maturity rates. It displays current 2Y, 5Y, 10Y, and 30Y yields, daily moves in basis points and percent, six core curve spreads, date-to-date curve comparison, long-run macro research, and light/dark themes.
+A clean institutional-style dashboard for U.S. Treasury Constant Maturity rates and delayed Treasury-futures monitoring. It displays current 2Y, 5Y, 10Y, and 30Y CMT yields, daily moves in basis points and percent, a separate intraday futures tape, six core curve spreads, date-to-date curve comparison, long-run macro research, and light/dark themes.
 
 Live deployment: <https://treasury-yield-dashboard.vercel.app>
 
@@ -15,6 +15,8 @@ No API key is required. The server fetches the current New York calendar year pl
 
 Treasury CMTs are official daily par-yield observations, not transaction prices or an intraday fixing. Treasury derives them from indicative bid-side quotations obtained by the Federal Reserve Bank of New York at or near 3:30 PM ET each trading day and usually publishes them by 6:00 PM ET, so no free official intraday CMT update exists. Faster polling would not make the underlying official curve fresher.
 
+The separate Futures tab uses delayed Yahoo Finance market data for the front CBOT 2-Year Note (`ZT=F`), 5-Year Note (`ZF=F`), 10-Year Note (`ZN=F`), and Treasury Bond (`ZB=F`) futures contracts. These are traded prices, not CMT yields. The server requests all four contracts in one allowlisted Yahoo spark query, caches responses for five minutes, and falls back to Yahoo's embedded 24-hour quote-page series if the chart API is rate-limited. Yahoo/yfinance is an unofficial convenience layer suitable for this educational market-reference view, not an authoritative or licensed professional feed. A commercial trading deployment should replace it with licensed CME data.
+
 FRED was reviewed as a possible primary source because it is academically familiar and reliable. The app intentionally keeps Treasury as primary for current values because Treasury is the direct official publisher of the Daily Treasury Par Yield Curve Rates, while FRED republishes the relevant DGS series from the Federal Reserve/H.15 ecosystem and its official API requires an API key.
 
 For long-run regime analysis, the app also uses the official Federal Reserve H.15 Data Download Program preformatted Treasury Constant Maturities CSV package:
@@ -27,7 +29,8 @@ This gives reliable long-run daily history back to the earliest available H.15 o
 ## Research Features
 
 - Long-run historical data for 2Y, 5Y, 10Y, and 30Y Treasury yields.
-- Trader-style workspace tabs: Market, Compare, History, and Regimes. Only the active research view is shown, avoiding the previous stacked-scroll layout.
+- Trader-style workspace tabs: Market, Futures, Compare, History, and Regimes. Only the active view is shown, avoiding a stacked-scroll layout.
+- A delayed CBOT Treasury-futures tape for `ZT=F`, `ZF=F`, `ZN=F`, and `ZB=F`, with 1D/5D/1M price charts, previous-close moves in 32nds, session range, reported volume, quote timestamps, and explicit inverse price/yield direction. Futures data is isolated from every official CMT calculation, spread, regime, statistic, and export.
 - Validated shareable workspace URLs preserve the active view and relevant range, dates, spread, curve pair, history section, and weekly/monthly interval. The Copy view action writes the normalized setup URL to the clipboard; malformed or out-of-sample parameters fall back to valid H.15 dates and supported controls.
 - Date-range presets: 1Y, 5Y, 10Y, 20Y, Max, plus custom start/end dates.
 - Six core 2Y/5Y/10Y/30Y curve combinations: 5Y-2Y, 10Y-2Y, 30Y-2Y, 10Y-5Y, 30Y-5Y, and 30Y-10Y.
@@ -65,6 +68,8 @@ Open <http://localhost:4174>. In production, Express serves both `/api/yields` a
 - `npm start`: run the production Express server.
 - `npm run preview`: preview only the Vite build.
 - `npm run verify:data`: fetch official sources and assert current values, history coverage, latest-source merge, and spread calculations.
+- `npm run verify:futures`: verify the four-symbol allowlist, price-change calculations, inverse yield-direction semantics, range validation, and partial-feed behavior with deterministic fixtures.
+- `npm run verify:futures:live`: additionally fetch the current delayed Yahoo futures data and validate all four contracts and their intraday bars.
 - `npm run verify:research`: verify all six curve classifications, completed-period handling, selected-window statistics, and unit-explicit CSV output.
 - `npm run verify`: run the production build plus research and official-data verification suites.
 
@@ -76,6 +81,7 @@ Optional environment variables:
 - `CACHE_TTL_MS`: backend Treasury data cache duration. Default: `600000`.
 - `HISTORY_WINDOW_DAYS`: lookback window for historical charts. Default: `365`.
 - `HISTORY_CACHE_TTL_MS`: long-run H.15 cache duration. Default: `1800000`.
+- `FUTURES_CACHE_TTL_MS`: delayed Yahoo Treasury-futures cache duration. Default: `300000`.
 
 ## API
 
@@ -101,18 +107,29 @@ Returns:
 - `source`: H.15 source metadata, Treasury supplement status, and limitations note.
 - `cache`: cache status.
 
+`GET /api/futures?range=1D|5D|1M`
+
+Returns:
+
+- `instruments`: delayed front-contract prices for `ZT=F`, `ZF=F`, `ZN=F`, and `ZB=F`, including previous close, change, change in 32nds, percent change, day range, volume, quote time, inverse rate direction, and chart bars.
+- `range`: the validated range and actual provider interval. If Yahoo rate-limits a longer-range request, the server explicitly downgrades to its embedded 1D/5-minute fallback and returns a warning.
+- `source`: Yahoo/CME attribution, delayed-reference status, retrieval time, and methodology links.
+- `warnings`: partial-symbol or provider-fallback disclosures.
+- `cache`: cache status.
+
 ## Project Structure
 
 ```text
 server/
   cache.js              In-memory cache
   config.js             Source URLs, maturity definitions, runtime config
+  futuresClient.js      Yahoo delayed Treasury-futures fetch/fallback/validation logic
   historicalClient.js   Federal Reserve H.15 DDP CSV fetch/parse/normalize logic
   index.js              Express app, API routes, production static serving
   treasuryClient.js     Treasury XML fetch/parse/normalize logic
 src/
   components/           Tabbed workspace, curve matrix, comparison, charts, and regime timeline
-  hooks/                Data refresh and theme hooks
+  hooks/                Official, historical, futures, and theme hooks
   lib/                  Formatting, event, range, and statistics utilities
   styles/               Theme tokens and responsive layout
   types.ts              Shared frontend data contracts

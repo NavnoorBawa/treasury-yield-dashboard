@@ -3648,3 +3648,562 @@ h3 {
     min-height: 44px;
   }
 }
+
+/* Delayed CBOT Treasury-futures workspace */
+
+.workspace-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.futures-workspace {
+  min-width: 0;
+}
+
+.futures-loading {
+  min-height: 480px;
+}
+
+.futures-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 8px 2px 11px;
+}
+
+.futures-header h2 {
+  font-size: 19px;
+}
+
+.futures-header p:not(.eyebrow) {
+  max-width: 790px;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.futures-header__status {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  color: var(--subtle);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.futures-header__status > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.futures-session {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.futures-session i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--subtle);
+}
+
+.futures-session--open i {
+  background: var(--series-2y);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-2y) 14%, transparent);
+}
+
+.futures-warning {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-color: var(--border);
+  border-left: 2px solid var(--series-5y);
+  border-radius: 4px;
+  background: var(--surface-raised);
+  font-size: 10px;
+}
+
+.futures-warning strong {
+  color: var(--ink);
+}
+
+.futures-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 39px;
+  padding: 5px 7px 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px 4px 0 0;
+  background: var(--surface-raised);
+}
+
+.futures-toolbar > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.futures-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.futures-range-selector {
+  width: auto;
+}
+
+.futures-range-selector .segmented-control__button {
+  min-width: 40px;
+  min-height: 27px;
+  padding-inline: 7px;
+  font-family: var(--font-number);
+  font-size: 9px;
+}
+
+.futures-toolbar .icon-button {
+  width: 29px;
+  height: 29px;
+  border-radius: 4px;
+}
+
+.futures-tape {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+  background: var(--surface-panel);
+}
+
+.futures-contract {
+  --futures-accent: var(--series-2y);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 126px;
+  gap: 7px;
+  padding: 11px 13px 10px;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.futures-contract:last-child {
+  border-right: 0;
+}
+
+.futures-contract::after {
+  position: absolute;
+  right: 13px;
+  bottom: 0;
+  left: 13px;
+  height: 2px;
+  content: "";
+  background: var(--futures-accent);
+  opacity: 0.55;
+}
+
+.futures-contract--5y { --futures-accent: var(--series-5y); }
+.futures-contract--10y { --futures-accent: var(--series-10y); }
+.futures-contract--30y { --futures-accent: var(--series-30y); }
+
+.futures-contract:hover {
+  background: var(--surface-raised);
+}
+
+.futures-contract--active {
+  background: color-mix(in srgb, var(--futures-accent) 5%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--futures-accent) 54%, var(--border));
+}
+
+.futures-contract--active::after {
+  opacity: 1;
+}
+
+.futures-contract__heading,
+.futures-contract__micro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.futures-contract__heading > span {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.futures-contract__heading strong {
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.futures-contract__heading small,
+.futures-contract__heading em {
+  color: var(--subtle);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 620;
+}
+
+.futures-contract__quote {
+  display: grid;
+  gap: 2px;
+}
+
+.futures-contract__quote strong {
+  overflow: hidden;
+  font-family: var(--font-number);
+  font-size: clamp(20px, 1.6vw, 25px);
+  font-weight: 620;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+.futures-contract__quote small {
+  color: var(--muted);
+  font-family: var(--font-number);
+  font-size: 9px;
+  font-weight: 580;
+}
+
+.futures-contract__direction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  color: var(--subtle);
+  font-size: 9.5px;
+  font-weight: 720;
+}
+
+.futures-contract__direction--higher {
+  color: var(--move-up);
+}
+
+.futures-contract__direction--lower {
+  color: var(--move-down);
+}
+
+.futures-contract__micro {
+  margin-top: auto;
+  color: var(--subtle);
+  font-family: var(--font-number);
+  font-size: 8px;
+}
+
+.futures-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.62fr) minmax(290px, 0.5fr);
+  gap: 9px;
+  margin-top: 9px;
+}
+
+.futures-chart-panel,
+.futures-methodology {
+  min-width: 0;
+}
+
+.futures-chart-panel__header {
+  align-items: center;
+}
+
+.futures-chart-panel__quote {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.futures-chart-panel__quote > strong {
+  font-family: var(--font-number);
+  font-size: 17px;
+  font-weight: 620;
+}
+
+.futures-chart-panel__change {
+  color: var(--subtle);
+  font-family: var(--font-number);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.futures-chart-panel__change--higher { color: var(--move-up); }
+.futures-chart-panel__change--lower { color: var(--move-down); }
+
+.futures-chart {
+  height: 340px;
+  margin-top: 6px;
+}
+
+.chart-tooltip--futures {
+  min-width: 180px;
+  border-left: 3px solid var(--series-10y);
+}
+
+.chart-tooltip--futures .chart-tooltip__row strong {
+  font-family: var(--font-number);
+  font-size: 11px;
+}
+
+.futures-chart-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  margin: 2px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.futures-chart-stats > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border-right: 1px solid var(--border);
+}
+
+.futures-chart-stats > div:last-child {
+  border-right: 0;
+}
+
+.futures-chart-stats dt {
+  color: var(--subtle);
+  font-size: 8.5px;
+  font-weight: 690;
+}
+
+.futures-chart-stats dd {
+  margin: 0;
+  font-family: var(--font-number);
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.futures-inverse-map {
+  display: grid;
+  overflow: hidden;
+  margin-top: 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.futures-inverse-map__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  min-height: 47px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 9.5px;
+}
+
+.futures-inverse-map__row:last-child {
+  border-bottom: 0;
+}
+
+.futures-inverse-map__row span,
+.futures-inverse-map__row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.futures-inverse-map__row strong {
+  justify-self: end;
+}
+
+.futures-inverse-map__row--lower strong { color: var(--move-down); }
+.futures-inverse-map__row--higher strong { color: var(--move-up); }
+
+.futures-methodology__notes {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.futures-methodology__notes p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
+.futures-methodology__notes svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--series-2y);
+}
+
+.futures-methodology__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.futures-methodology__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 680;
+  text-decoration: none;
+}
+
+.futures-methodology__links a:hover {
+  color: var(--ink);
+}
+
+.futures-source-strip {
+  border-left-color: var(--series-10y);
+}
+
+@media (max-width: 1100px) {
+  .futures-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.54fr);
+  }
+
+  .futures-contract__micro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+@media (max-width: 940px) {
+  .futures-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .futures-header__status {
+    justify-items: start;
+  }
+
+  .futures-tape {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .futures-contract:nth-child(2) {
+    border-right: 0;
+  }
+
+  .futures-contract:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .futures-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-tab {
+    min-width: 0;
+    padding-inline: 3px;
+  }
+
+  .workspace-tab strong {
+    font-size: 9px;
+  }
+
+  .futures-header {
+    padding-inline: 1px;
+  }
+
+  .futures-header h2 {
+    font-size: 17px;
+  }
+
+  .futures-header p:not(.eyebrow) {
+    font-size: 10px;
+  }
+
+  .futures-header__status {
+    white-space: normal;
+  }
+
+  .futures-toolbar {
+    padding-left: 8px;
+  }
+
+  .futures-range-selector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: auto;
+  }
+
+  .futures-contract {
+    min-height: 122px;
+    padding: 10px;
+  }
+
+  .futures-contract::after {
+    right: 10px;
+    left: 10px;
+  }
+
+  .futures-contract__heading em {
+    display: block;
+    max-width: 72px;
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .futures-contract__quote strong {
+    font-size: 19px;
+  }
+
+  .futures-contract__micro {
+    display: none;
+  }
+
+  .futures-chart-panel__quote {
+    justify-items: start;
+  }
+
+  .futures-chart {
+    height: 274px;
+  }
+
+  .futures-chart-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .futures-chart-stats > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .futures-chart-stats > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .futures-inverse-map__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .futures-inverse-map__row strong {
+    justify-self: start;
+  }
+}

@@ -118,3 +118,61 @@ export interface HistoricalPayload {
     warning?: string;
   };
 }
+
+export type FuturesRange = "1D" | "5D" | "1M";
+export type FuturesRateDirection = "higher" | "lower" | "unchanged";
+
+export interface FuturesSeriesPoint {
+  timestamp: number;
+  price: number;
+}
+
+export interface FuturesInstrument {
+  key: DashboardMaturityKey;
+  symbol: "ZT=F" | "ZF=F" | "ZN=F" | "ZB=F";
+  label: string;
+  shortLabel: DashboardMaturityKey;
+  minTick: number;
+  yahooPageUrl: string;
+  contractName: string;
+  exchange: string;
+  currency: string;
+  price: number;
+  previousClose: number;
+  priceChange: number;
+  priceChangePct: number;
+  changeThirtySeconds: number;
+  dayHigh: number | null;
+  dayLow: number | null;
+  volume: number | null;
+  quoteTime: string | null;
+  marketState: "open" | "closed";
+  rateDirection: FuturesRateDirection;
+  series: FuturesSeriesPoint[];
+}
+
+export interface FuturesPayload {
+  source: {
+    name: string;
+    pageUrl: string;
+    exchange: string;
+    methodologyUrl: string;
+    note: string;
+    retrievedAt: string;
+    delayed: true;
+    displayUse: string;
+  };
+  range: {
+    key: FuturesRange;
+    providerRange: string;
+    providerInterval: string;
+    intervalLabel: string;
+  };
+  instruments: FuturesInstrument[];
+  warnings: string[];
+  cache: {
+    status: CacheStatus;
+    ttlSeconds: number;
+    warning?: string;
+  };
+}

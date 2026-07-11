@@ -4,6 +4,8 @@ export const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS ?? 10 * 60 * 1000);
 
 export const HISTORY_CACHE_TTL_MS = Number(process.env.HISTORY_CACHE_TTL_MS ?? 30 * 60 * 1000);
 
+export const FUTURES_CACHE_TTL_MS = Number(process.env.FUTURES_CACHE_TTL_MS ?? 5 * 60 * 1000);
+
 export const TREASURY_FEED_URL =
   "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml";
 
@@ -72,3 +74,53 @@ export const RESEARCH_SPREADS = [
   { key: "30Y5Y", label: "30Y - 5Y", longLabel: "30Y minus 5Y", minuend: "30Y", subtrahend: "5Y" },
   { key: "30Y10Y", label: "30Y - 10Y", longLabel: "30Y minus 10Y", minuend: "30Y", subtrahend: "10Y" }
 ];
+
+export const TREASURY_FUTURES = [
+  {
+    key: "2Y",
+    symbol: "ZT=F",
+    label: "2-Year Note",
+    shortLabel: "2Y",
+    minTick: 1 / 256,
+    yahooPageUrl: "https://finance.yahoo.com/quote/ZT%3DF/"
+  },
+  {
+    key: "5Y",
+    symbol: "ZF=F",
+    label: "5-Year Note",
+    shortLabel: "5Y",
+    minTick: 1 / 128,
+    yahooPageUrl: "https://finance.yahoo.com/quote/ZF%3DF/"
+  },
+  {
+    key: "10Y",
+    symbol: "ZN=F",
+    label: "10-Year Note",
+    shortLabel: "10Y",
+    minTick: 1 / 64,
+    yahooPageUrl: "https://finance.yahoo.com/quote/ZN%3DF/"
+  },
+  {
+    key: "30Y",
+    symbol: "ZB=F",
+    label: "Treasury Bond",
+    shortLabel: "30Y",
+    minTick: 1 / 32,
+    yahooPageUrl: "https://finance.yahoo.com/quote/ZB%3DF/"
+  }
+];
+
+export const FUTURES_RANGES = {
+  "1D": { providerRange: "1d", providerInterval: "5m", intervalLabel: "5-minute bars" },
+  "5D": { providerRange: "5d", providerInterval: "15m", intervalLabel: "15-minute bars" },
+  "1M": { providerRange: "1mo", providerInterval: "60m", intervalLabel: "60-minute bars" }
+};
+
+export const FUTURES_SOURCE = {
+  name: "Yahoo Finance delayed market data",
+  pageUrl: "https://finance.yahoo.com/markets/commodities/",
+  exchange: "CBOT",
+  methodologyUrl: "https://www.cmegroup.com/trading/interest-rates/basics-of-us-treasury-futures.html",
+  note:
+    "Traditional Treasury futures are traded price proxies driven by deliverable securities and the cheapest-to-deliver bond. They are not official Treasury Constant Maturity yields."
+};

@@ -3,8 +3,9 @@ import express from "express";
 import helmet from "helmet";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CACHE_TTL_MS, HISTORY_CACHE_TTL_MS, PORT } from "./config.js";
+import { CACHE_TTL_MS, FUTURES_CACHE_TTL_MS, HISTORY_CACHE_TTL_MS, PORT } from "./config.js";
 import { MemoryCache } from "./cache.js";
+import { getTreasuryFuturesData, normalizeFuturesRange } from "./futuresClient.js";
 import { getHistoricalYieldData } from "./historicalClient.js";
 import { getTreasuryYieldData } from "./treasuryClient.js";
 
@@ -13,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const cache = new MemoryCache();
 const historyCache = new MemoryCache();
+const futuresCaches = new Map();
 
 app.disable("x-powered-by");
 app.use(compression());
@@ -127,6 +129,56 @@ app.get("/api/history", async (_request, response) => {
     return response.status(503).json({
       error: "Historical Treasury data unavailable",
       message: error instanceof Error ? error.message : "Unknown historical feed error"
+    });
+  }
+});
+
+app.get("/api/futures", async (request, response) => {
+  const rawRange = Array.isArray(request.query.range) ? request.query.range[0] : request.query.range;
+  const range = normalizeFuturesRange(rawRange);
+  const futuresCache = futuresCaches.get(range) ?? new MemoryCache();
+  futuresCaches.set(range, futuresCache);
+  const cached = futuresCache.get();
+
+  if (cached?.isFresh) {
+    response.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    return response.json({
+      ...cached.value,
+      cache: { status: "hit", ttlSeconds: Math.round(FUTURES_CACHE_TTL_MS / 1000) }
+    });
+  }
+
+  try {
+    const data = await getTreasuryFuturesData(range);
+    futuresCache.set(data, FUTURES_CACHE_TTL_MS);
+    if (data.range.key !== range) {
+      const fallbackRangeCache = futuresCaches.get(data.range.key) ?? new MemoryCache();
+      fallbackRangeCache.set(data, FUTURES_CACHE_TTL_MS);
+      futuresCaches.set(data.range.key, fallbackRangeCache);
+    }
+    response.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    return response.json({
+      ...data,
+      cache: { status: "refresh", ttlSeconds: Math.round(FUTURES_CACHE_TTL_MS / 1000) }
+    });
+  } catch (error) {
+    const fallbackCached = futuresCaches.get("1D")?.get();
+    const stale = cached?.value ? cached : fallbackCached;
+    if (stale?.value) {
+      response.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=300");
+      return response.status(200).json({
+        ...stale.value,
+        cache: {
+          status: "stale",
+          ttlSeconds: Math.round(FUTURES_CACHE_TTL_MS / 1000),
+          warning: "Using the last delayed futures snapshot because Yahoo Finance could not be reached."
+        }
+      });
+    }
+
+    return response.status(503).json({
+      error: "Delayed Treasury-futures data unavailable",
+      message: error instanceof Error ? error.message : "Unknown market-data error"
     });
   }
 });

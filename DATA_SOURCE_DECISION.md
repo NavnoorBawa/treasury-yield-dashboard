@@ -9,11 +9,11 @@ Use a two-source architecture:
 
 FRED is credible and professor-friendly as a reference, but it is not the best primary production feed here because it republishes Treasury constant maturity data through the Federal Reserve/FRED ecosystem and can lag the Treasury feed. The Treasury XML feed is the direct publisher for the Daily Treasury Par Yield Curve Rates used in the top current-market dashboard. The Federal Reserve H.15 DDP is the best free official source for long-run historical research because it provides a direct automated CSV package with all Treasury constant maturity observations.
 
-`yfinance` is deliberately not used. It is an interface to Yahoo Finance data, not an official publisher of U.S. Treasury constant-maturity yields, and it is not an appropriate authoritative source for the fixed 2Y, 5Y, 10Y, and 30Y CMT series in this project.
+Yahoo/yfinance is deliberately excluded from the official CMT dataset. It is not an official publisher of U.S. Treasury constant-maturity yields. It is used only in the separate Futures tab as a delayed price feed for exchange-traded CBOT contracts, where the instrument identity and limitations are explicit.
 
 ## Intraday Source Review
 
-The public dashboard intentionally omits intraday yields because no reviewed free source meets the required combination of accurate 2Y, 5Y, 10Y, and 30Y cash Treasury coverage, documented methodology, automated access, and public redistribution rights.
+The public dashboard intentionally omits intraday CMT yields because no reviewed free source meets the required combination of accurate 2Y, 5Y, 10Y, and 30Y cash Treasury coverage, documented methodology, automated access, and public redistribution rights. It now includes a separate delayed Treasury-futures reference because those are identifiable traded contracts rather than estimated CMT observations.
 
 - Treasury XML, Federal Reserve H.15/FRED, and Alpha Vantage's Treasury endpoint publish daily or lower-frequency CMT observations, not intraday cash-market quotes: https://home.treasury.gov/treasury-daily-interest-rate-xml-feed and https://www.alphavantage.co/documentation/
 - CME BrokerTec is the technically correct continuous source for on-the-run cash Treasuries, but access requires authorized credentials and CME market-data licensing: https://www.cmegroup.com/market-data/browse-data/catalog/brokertec-us-treasuries-on-the-run.html and https://www.cmegroup.com/market-data/license-data.html
@@ -21,8 +21,9 @@ The public dashboard intentionally omits intraday yields because no reviewed fre
 - FINRA Treasury aggregates describe prior-trading-day activity and do not provide a real-time tenor yield curve: https://www.finra.org/treasuryaggregates
 - Twelve Data lists U.S. Treasury yield symbols, but its free plan is for internal non-display use and its terms require explicit external-display or redistribution rights: https://twelvedata.com/pricing-business and https://twelvedata.com/terms
 - TradingView widgets do not provide an API or export path, and the TVC government-bond symbols are restricted from the embedded Advanced Chart widget. A user subscription also does not grant data rights for an independently calculated public dashboard: https://www.tradingview.com/widget-docs/faq/data/ and https://www.tradingview.com/support/solutions/43000709178-what-does-tvc-stand-for-in-the-instrument-ticker/
+- Yahoo Finance exposes delayed front-contract Treasury-futures prices for `ZT=F`, `ZF=F`, `ZN=F`, and `ZB=F`. This gives a complete directional proxy set for the requested maturity sectors, but Yahoo/yfinance remains unofficial, rate-limited, and intended for research/personal use. The implementation therefore labels it delayed, caches for five minutes, supports stale/embedded-page fallback, and never mixes it into official calculations.
 
-An embedded third-party chart, scraped webpage, Treasury-futures proxy, or delayed retail symbol would weaken the project's data lineage and could mislead users into treating a different instrument as the official CMT curve. The unsupported intraday workspace was therefore removed. If redistribution-authorized BrokerTec or equivalent cash-market data is obtained later, it should be added as a clearly separate on-the-run instrument layer and never spliced into the daily CMT history.
+Treating an embedded third-party chart, Treasury-futures proxy, or delayed retail symbol as the official CMT curve would weaken the project's data lineage. The Futures tab avoids that error by presenting only traded contract prices and explicitly disclosing the inverse directional relationship, cheapest-to-deliver basis, delay, and non-comparability of raw moves across tenors. If redistribution-authorized BrokerTec or equivalent cash-market data is obtained later, it should be added as a separate on-the-run instrument layer and never spliced into the daily CMT history.
 
 ## Sources Compared
 

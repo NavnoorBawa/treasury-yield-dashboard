@@ -17,6 +17,7 @@ import {
   ChartNoAxesCombined,
   Check,
   Download,
+  Gauge,
   Focus,
   GitCompareArrows,
   History,
@@ -28,6 +29,7 @@ import {
 import { CurveMatrix } from "./CurveMatrix";
 import { CurveRegimeTimeline } from "./CurveRegimeTimeline";
 import { LoadingBlock } from "./LoadingBlock";
+import { TreasuryFuturesWorkspace } from "./TreasuryFuturesWorkspace";
 import { YieldCurveChart } from "./YieldCurveChart";
 import { YieldCurveComparison } from "./YieldCurveComparison";
 import { useHistoricalYields } from "../hooks/useHistoricalYields";
@@ -51,13 +53,14 @@ import {
 } from "../lib/research";
 import type { ResearchMaturityKey, SpreadKey, TreasuryPayload } from "../types";
 
-type WorkspaceTab = "snapshot" | "comparison" | "history" | "regimes";
+type WorkspaceTab = "snapshot" | "futures" | "comparison" | "history" | "regimes";
 type HistoryView = "charts" | "events" | "statistics";
 
 const rangePresets: Array<Exclude<RangePreset, "CUSTOM">> = ["1Y", "5Y", "10Y", "20Y", "MAX"];
 
 const workspaceTabs: Array<{ id: WorkspaceTab; label: string; description: string; icon: typeof ChartNoAxesCombined }> = [
   { id: "snapshot", label: "Market", description: "Official CMT", icon: ChartNoAxesCombined },
+  { id: "futures", label: "Futures", description: "Intraday proxy", icon: Gauge },
   { id: "comparison", label: "Compare", description: "Date to date", icon: GitCompareArrows },
   { id: "history", label: "History", description: "Rates and events", icon: History },
   { id: "regimes", label: "Regimes", description: "Curve movement", icon: Layers3 }
@@ -86,6 +89,8 @@ const workspaceStateQueryKeys = ["view", "range", "from", "to", "section", "spre
 const workspaceTabFromQuery: Record<string, WorkspaceTab> = {
   market: "snapshot",
   snapshot: "snapshot",
+  futures: "futures",
+  intraday: "futures",
   compare: "comparison",
   comparison: "comparison",
   history: "history",
@@ -94,6 +99,7 @@ const workspaceTabFromQuery: Record<string, WorkspaceTab> = {
 
 const workspaceTabToQuery: Record<WorkspaceTab, string> = {
   snapshot: "market",
+  futures: "futures",
   comparison: "compare",
   history: "history",
   regimes: "regimes"
@@ -239,7 +245,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
   const [initialWorkspaceState] = useState(readWorkspaceState);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialWorkspaceState.activeTab);
   const [historyView, setHistoryView] = useState<HistoryView>(initialWorkspaceState.historyView);
-  const shouldLoadHistory = activeTab !== "snapshot";
+  const shouldLoadHistory = activeTab === "comparison" || activeTab === "history" || activeTab === "regimes";
   const { data, error, isLoading } = useHistoricalYields(shouldLoadHistory);
   const [preset, setPreset] = useState<RangePreset>(initialWorkspaceState.preset);
   const [range, setRange] = useState(initialWorkspaceState.range);
@@ -649,6 +655,8 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
             <span>{currentLoading ? "Checking Treasury XML" : `Official CMT ${formatDate(currentData.source.recordDate)}`}</span>
           </div> : null}
         </div>
+      ) : activeTab === "futures" ? (
+        <TreasuryFuturesWorkspace />
       ) : isLoading || !data ? (
         <div className="workspace-panel" role="tabpanel" id={`workspace-panel-${activeTab}`} aria-labelledby={`workspace-tab-${activeTab}`} tabIndex={0}>
           {error ? <div className="notice" role="alert"><strong>Unable to load long-run historical data.</strong><span>{error instanceof Error ? error.message : "Please retry in a moment."}</span></div> : <LoadingBlock className="panel" rows={7} />}
