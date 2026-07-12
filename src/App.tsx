@@ -6,6 +6,7 @@ import { useTheme } from "./hooks/useTheme";
 import { useTreasuryYields } from "./hooks/useTreasuryYields";
 import { formatDate } from "./lib/format";
 import "./styles/global.css";
+import "./styles/trader-workspace.css";
 
 function App() {
   const { theme, toggleTheme } = useTheme();
