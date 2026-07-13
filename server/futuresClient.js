@@ -9,7 +9,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const QUOTE_FRESHNESS_MS = 45 * 60 * 1000;
 const MAX_FUTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const LATEST_SESSION_LOOKBACK = { providerRange: "5d", providerInterval: "5m" };
-const USER_AGENT = "TreasuryYieldDashboard/1.0";
+const USER_AGENT = "TreasuryRatesMonitor/1.0 (+https://treasury-rates-monitor.vercel.app/)";
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 const round = (value, decimals) => Number(value.toFixed(decimals));

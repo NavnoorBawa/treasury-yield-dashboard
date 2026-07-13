@@ -1,19 +1,25 @@
 {
-  "name": "treasury-yield-dashboard",
+  "name": "treasury-rates-monitor",
   "version": "1.0.0",
   "private": true,
+  "description": "Institutional U.S. Treasury rates, curve, history, and delayed futures monitor.",
+  "homepage": "https://treasury-rates-monitor.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NavnoorBawa/treasury-rates-monitor.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",
     "client": "vite --host 0.0.0.0",
-    "server": "node --watch server/index.js",
+    "server": "node --env-file-if-exists=.env.local --watch server/index.js",
     "build": "tsc -b && vite build",
     "verify:data": "node scripts/verify-data.mjs",
     "verify:futures": "node scripts/verify-futures.mjs",
     "verify:futures:live": "node scripts/verify-futures.mjs --live",
     "verify:research": "node --no-warnings --experimental-strip-types --experimental-specifier-resolution=node scripts/verify-research.mjs",
     "verify": "npm run build && npm run verify:research && npm run verify:futures && npm run verify:data",
-    "start": "NODE_ENV=production node server/index.js",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env.local server/index.js",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

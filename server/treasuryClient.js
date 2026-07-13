@@ -63,7 +63,7 @@ const fetchWithTimeout = async (url, timeoutMs = 15000) => {
       signal: controller.signal,
       headers: {
         Accept: "application/xml,text/xml;q=0.9,*/*;q=0.8",
-        "User-Agent": "TreasuryYieldDashboard/1.0 educational dashboard"
+        "User-Agent": "TreasuryRatesMonitor/1.0 (+https://treasury-rates-monitor.vercel.app/)"
       }
     });
 

@@ -1,8 +1,23 @@
 # U.S. Treasury Rates Monitor
 
-A clean institutional-style dashboard for U.S. Treasury Constant Maturity rates and delayed Treasury-futures monitoring. It displays current 2Y, 5Y, 10Y, and 30Y CMT yields, daily moves in basis points and percent, a separate intraday futures tape, six core curve spreads, date-to-date curve comparison, long-run macro research, and light/dark themes.
+An institutional research interface for official U.S. Treasury Constant Maturity rates, long-run curve analysis, and clearly separated delayed Treasury-futures proxies. The monitor covers current 2Y, 5Y, 10Y, and 30Y CMT yields, daily changes, six core spreads, date-to-date comparison, sourced event windows, historical regimes, and selected-period statistics.
 
 Live deployment: <https://treasury-rates-monitor.vercel.app>
+
+![U.S. Treasury Rates Monitor preview](public/og-rates-monitor.png)
+
+## Verification Status
+
+| Area | Verification |
+| --- | --- |
+| Current rates | Direct U.S. Treasury XML; 2Y, 5Y, 10Y, and 30Y values and prior-observation changes recalculated by `verify:data` |
+| Long-run history | Federal Reserve H.15 DDP package with Treasury XML latest-observation supplement |
+| Curve analytics | Six spread identities, basis-point units, missing-value rules, and CSV units independently asserted |
+| Regime analysis | Six directional classifications, neutral handling, and completed-calendar-period rules covered by deterministic tests |
+| Futures proxies | Four-symbol allowlist, inverse price/yield interpretation, session normalization, and partial-feed handling asserted |
+| Production | Vercel deployment from `main`; `/api/health`, security headers, HTTPS, metadata, sitemap, and social preview enabled |
+
+Run the same release gate locally with `npm run verify`.
 
 ## Data Source
 
@@ -45,8 +60,10 @@ Historical charts use observed business-day data only. Weekends, market holidays
 
 ## Quick Start
 
+Prerequisites: Node.js 22 and npm.
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -75,6 +92,8 @@ Open <http://localhost:4174>. In production, Express serves both `/api/yields` a
 
 ## Configuration
 
+No environment variable is required. Copy `.env.example` only when you need to override a local default.
+
 Optional environment variables:
 
 - `PORT`: production/server port. Default: `4174`.
@@ -82,6 +101,8 @@ Optional environment variables:
 - `HISTORY_WINDOW_DAYS`: lookback window for historical charts. Default: `365`.
 - `HISTORY_CACHE_TTL_MS`: long-run H.15 cache duration. Default: `1800000`.
 - `FUTURES_CACHE_TTL_MS`: delayed Yahoo Treasury-futures cache duration. Default: `300000`.
+
+None of these values is a credential. Do not commit `.env.local` or any provider token.
 
 ## API
 
@@ -117,9 +138,28 @@ Returns:
 - `warnings`: partial-symbol or provider-fallback disclosures.
 - `cache`: cache status.
 
+`GET /api/health`
+
+Returns `{ "ok": true, "service": "treasury-rates-monitor" }` when the deployed API runtime is reachable.
+
 ## Project Structure
 
 ```text
+api/
+  futures.js            Vercel delayed futures function
+  health.js             Vercel health check
+  history.js            Vercel H.15 history function
+  yields.js             Vercel current Treasury function
+public/
+  404.html               Production not-found page
+  favicon.svg            Browser icon
+  og-rates-monitor.png   Social preview
+  robots.txt             Search crawler policy
+  sitemap.xml            Canonical production URL
+scripts/
+  verify-data.mjs        Official-source and calculation verification
+  verify-futures.mjs     Futures normalization and live-feed checks
+  verify-research.mjs    Regime, statistics, event, and CSV assertions
 server/
   cache.js              In-memory cache
   config.js             Source URLs, maturity definitions, runtime config
@@ -133,23 +173,26 @@ src/
   lib/                  Formatting, event, range, and statistics utilities
   styles/               Theme tokens and responsive layout
   types.ts              Shared frontend data contracts
+DATA_SOURCE_DECISION.md Source comparison, lineage, and intraday-data decision
+vercel.json             Serverless functions, caching, and security headers
 ```
 
 ## Deployment
 
-The current recommended deployment target is Vercel because it supports the Vite frontend plus Node serverless API routes on the free Hobby plan without Render-style idle spin-down.
+The production target is Vercel because the project uses a Vite frontend and colocated Node serverless API routes.
 
-This project includes:
+The production deployment includes:
 
 - `api/health.js`
 - `api/yields.js`
 - `api/history.js`
+- `api/futures.js`
 - `vercel.json`
 - `public/robots.txt`, `public/sitemap.xml`, and `public/404.html`
 
 Security headers are configured in `vercel.json` for Vercel and through Helmet for the local Express production server. The app has no required secrets or API keys.
 
-Deploy with:
+The Vercel project is connected to the GitHub `main` branch. A push to `main` creates a production deployment; other branches can be used for preview deployments. A manual production deployment is also available:
 
 ```bash
 npx vercel --prod
@@ -171,3 +214,24 @@ Recommended settings for Render, Railway, Fly.io, or similar:
 - Required secrets: none
 
 For static-only hosts, keep the backend deployed separately and point the frontend to that API, or use a platform function to proxy Treasury XML requests. The included one-service Express setup is the simplest deployment path.
+
+## Interpretation and Data Limitations
+
+- CMT yields are official daily par-yield observations, not executable prices, intraday cash quotes, or bond total returns.
+- The percentage shown beside a daily yield move is the percentage change in the yield level. Basis points are the primary fixed-income change unit.
+- Historical charts retain observed business days only. Weekends, market holidays, source-level `ND` values, and the official 30Y publication gap are not imputed.
+- Event markers provide sourced context and do not establish causality.
+- Curve regimes are ex-post descriptions of completed periods, not forecasts or trading signals.
+- Yahoo Finance futures prices are delayed, unofficial market references. They are never converted into CMT yields or included in official spreads, statistics, regimes, or exports.
+- A trading or investment process requiring executable intraday cash Treasury data should use a licensed source such as CME BrokerTec rather than this public educational feed.
+
+## Release Checklist
+
+```bash
+npm ci
+npm run verify
+npm run verify:futures:live
+npm audit --omit=dev
+```
+
+Before publishing, confirm that the production health endpoint returns `200`, the latest official Treasury record date is current for the publication calendar, and the social preview uses `og-rates-monitor.png`.

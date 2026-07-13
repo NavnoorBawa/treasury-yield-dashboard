@@ -54,7 +54,7 @@ app.use((_request, response, next) => {
 });
 
 app.get("/api/health", (_request, response) => {
-  response.json({ ok: true, service: "treasury-yield-dashboard" });
+  response.json({ ok: true, service: "treasury-rates-monitor" });
 });
 
 app.get("/api/yields", async (_request, response) => {
