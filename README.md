@@ -2,7 +2,7 @@
 
 A clean institutional-style dashboard for U.S. Treasury Constant Maturity rates and delayed Treasury-futures monitoring. It displays current 2Y, 5Y, 10Y, and 30Y CMT yields, daily moves in basis points and percent, a separate intraday futures tape, six core curve spreads, date-to-date curve comparison, long-run macro research, and light/dark themes.
 
-Live deployment: <https://treasury-yield-dashboard.vercel.app>
+Live deployment: <https://treasury-rates-monitor.vercel.app>
 
 ## Data Source
 
@@ -158,7 +158,7 @@ npx vercel --prod
 Production URL:
 
 ```text
-https://treasury-yield-dashboard.vercel.app
+https://treasury-rates-monitor.vercel.app
 ```
 
 You can also use any Node 22 host that can run an Express server.

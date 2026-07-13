@@ -58,7 +58,7 @@
 
   <g transform="translate(108 472)">
     <text x="0" y="34" fill="#a3ada7" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Official U.S. Treasury + Federal Reserve H.15</text>
-    <text x="0" y="72" fill="#6f7974" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18">treasury-yield-dashboard.vercel.app</text>
+    <text x="0" y="72" fill="#6f7974" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18">treasury-rates-monitor.vercel.app</text>
     <g transform="translate(620 0)">
       <path d="M0 22h324M0 56h324M0 90h324" stroke="#2b332f" stroke-width="2" opacity=".72"/>
       <rect x="22" y="62" width="36" height="28" rx="4" fill="#56b9aa" opacity=".78"/>

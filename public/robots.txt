@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://treasury-yield-dashboard.vercel.app/sitemap.xml
+Sitemap: https://treasury-rates-monitor.vercel.app/sitemap.xml
