@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
   CartesianGrid,
   Line,
@@ -10,7 +10,14 @@ import {
 } from "recharts";
 import { CalendarRange, Info, X } from "lucide-react";
 import { formatBps, formatDate, formatYield } from "../lib/format";
-import { findCompleteCurveObservationOnOrBefore, maturityKeys } from "../lib/research";
+import {
+  buildCurveMove,
+  curveMoveShapeToleranceBps,
+  curvePairs,
+  findCompleteCurveObservationOnOrBefore,
+  maturityKeys,
+  type CurveMoveClassification
+} from "../lib/research";
 import type { HistoricalRow } from "../types";
 
 interface YieldCurveComparisonProps {
@@ -30,6 +37,20 @@ const seriesColors: Record<ComparisonSeriesKey, string> = {
   reference: "var(--comparison-reference)",
   reference2: "var(--comparison-secondary)"
 };
+
+const regimeColors: Record<CurveMoveClassification, string> = {
+  "Bull steepening": "var(--regime-bull-steepening)",
+  "Bear steepening": "var(--regime-bear-steepening)",
+  "Bull flattening": "var(--regime-bull-flattening)",
+  "Bear flattening": "var(--regime-bear-flattening)",
+  "Parallel shift higher": "var(--regime-parallel-higher)",
+  "Parallel shift lower": "var(--regime-parallel-lower)",
+  "Neutral / unclassified": "var(--chart-regime-neutral)"
+};
+
+// Date-to-date comparisons reuse the project's tightest disclosed slope
+// tolerance so a trivial slope move is not labelled a steepener/flattener.
+const comparisonToleranceBps = curveMoveShapeToleranceBps["1W"];
 
 interface ComparisonTooltipProps {
   active?: boolean;
@@ -106,6 +127,42 @@ export function YieldCurveComparison({
 
   const toggleSeries = (key: ComparisonSeriesKey) =>
     setHiddenSeries((current) => ({ ...current, [key]: !current[key] }));
+
+  // Zoom the Y axis to the curves that are actually visible so nearly
+  // overlapping curves stay distinguishable; hiding a curve rescales the axis.
+  const yDomain = useMemo<[number, number] | null>(() => {
+    const values: number[] = [];
+    comparisonData.forEach((point) => {
+      if (!hiddenSeries.asOf) values.push(point.asOf);
+      if (!hiddenSeries.reference) values.push(point.reference);
+      if (hasSecondReference && !hiddenSeries.reference2 && typeof point.reference2 === "number") {
+        values.push(point.reference2);
+      }
+    });
+    if (!values.length) return null;
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    const padding = Math.max((maximum - minimum) * 0.12, 0.04);
+    return [minimum - padding, maximum + padding];
+  }, [comparisonData, hasSecondReference, hiddenSeries]);
+  const yTickDecimals = yDomain && yDomain[1] - yDomain[0] < 0.6 ? 2 : 1;
+
+  const moveBlocks = useMemo(() => {
+    if (!asOfRow) return [];
+
+    const buildBlock = (reference: HistoricalRow) => ({
+      referenceDate: reference.date,
+      moves: curvePairs.map((pair) => ({
+        pair,
+        move: buildCurveMove(reference, asOfRow, pair, comparisonToleranceBps)
+      }))
+    });
+
+    return [
+      ...(canCompare && referenceRow ? [buildBlock(referenceRow)] : []),
+      ...(hasSecondReference && secondReferenceRow ? [buildBlock(secondReferenceRow)] : [])
+    ];
+  }, [asOfRow, canCompare, hasSecondReference, referenceRow, secondReferenceRow]);
 
   const legendItems: Array<{ key: ComparisonSeriesKey; label: string }> = [
     { key: "reference", label: formatDate(referenceRow?.date) },
@@ -193,9 +250,9 @@ export function YieldCurveComparison({
                 <YAxis
                   tickLine={false}
                   axisLine={false}
-                  width={50}
-                  domain={["dataMin - 0.2", "dataMax + 0.2"]}
-                  tickFormatter={(value) => `${Number(value).toFixed(1)}%`}
+                  width={54}
+                  domain={yDomain ?? ["dataMin - 0.2", "dataMax + 0.2"]}
+                  tickFormatter={(value) => `${Number(value).toFixed(yTickDecimals)}%`}
                   tick={{ fill: "var(--muted)", fontSize: 12 }}
                 />
                 <Tooltip content={<ComparisonTooltip />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
@@ -255,6 +312,41 @@ export function YieldCurveComparison({
               </div>
             ))}
           </div>
+          {moveBlocks.length ? (
+            <div className="comparison-regimes">
+              <div className="comparison-regimes__header">
+                <strong>Curve move classification</strong>
+                <span>
+                  Six two-tenor segments · near-parallel within a ±{comparisonToleranceBps} bps slope change ·
+                  ex-post description of the selected dates, not a signal
+                </span>
+              </div>
+              {moveBlocks.map((block) => (
+                <div className="comparison-regimes__block" key={block.referenceDate}>
+                  <span className="comparison-regimes__ref">
+                    {formatDate(block.referenceDate)} → {formatDate(asOfRow?.date)}
+                  </span>
+                  <div className="comparison-regimes__grid">
+                    {block.moves.map(({ pair, move }) => (
+                      <div
+                        className="comparison-regimes__item"
+                        key={pair.key}
+                        style={{ "--regime-color": move ? regimeColors[move.type] : "var(--chart-regime-neutral)" } as CSSProperties}
+                      >
+                        <span>{pair.label}</span>
+                        <strong>{move ? move.type : "n/a"}</strong>
+                        <small>
+                          {move
+                            ? `Slope ${formatBps(move.spreadDeltaBps)} · pair avg ${formatBps(move.levelDeltaBps)}`
+                            : "Insufficient observations"}
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </>
       ) : (
         <div className="comparison-empty">

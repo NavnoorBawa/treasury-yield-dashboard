@@ -76,7 +76,7 @@ const workspaceTabs: Array<{ id: WorkspaceTab; label: string; description: strin
 const visibleWorkspaceTabs = workspaceTabs.filter((tab) => tab.id !== "futures" || SHOW_FUTURES_TAB);
 
 const historyViews: Array<{ id: HistoryView; label: string }> = [
-  { id: "charts", label: "Rates & spreads" },
+  { id: "charts", label: "Rates & Curves" },
   { id: "statistics", label: "Statistics" }
 ];
 
@@ -275,6 +275,10 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
   const [comparisonReference, setComparisonReference] = useState(initialWorkspaceState.comparisonReference);
   const [comparisonReference2, setComparisonReference2] = useState(initialWorkspaceState.comparisonReference2);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [showEventMarkers, setShowEventMarkers] = useState(true);
+  const [pinnedEventId, setPinnedEventId] = useState<string | null>(null);
+  const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
+  const highlightedEventId = hoveredEventId ?? pinnedEventId;
 
   useEffect(() => {
     if (!data?.rows.length) return;
@@ -514,10 +518,68 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     </div>
   );
 
+  const renderEventReferenceLines = () =>
+    showEventMarkers
+      ? chartEventMarkers.map(({ event, markerDate }) => {
+          const isHighlighted = highlightedEventId === event.id;
+          return (
+            <ReferenceLine
+              key={event.id}
+              x={markerDate}
+              stroke={isHighlighted ? "var(--chart-highlight)" : "var(--event-line)"}
+              strokeWidth={isHighlighted ? 2 : 1}
+              strokeDasharray="4 6"
+              label={isHighlighted ? { value: event.title, position: "insideTopLeft", fill: "var(--ink)", fontSize: 11 } : undefined}
+            />
+          );
+        })
+      : [];
+
   const renderHistoryCharts = () => {
     if (!selectedRows.length) return <div className="empty-state">No valid Treasury observations are available inside the selected date window.</div>;
 
     return (
+      <>
+      <div className="chart-events-bar">
+        <button
+          className="chart-events-toggle"
+          type="button"
+          aria-pressed={showEventMarkers}
+          onClick={() => setShowEventMarkers((current) => !current)}
+          title="Show or hide sourced event markers on the charts"
+        >
+          <Flag size={14} aria-hidden="true" />
+          Event markers {showEventMarkers ? "on" : "off"}
+        </button>
+        {showEventMarkers ? (
+          chartEventMarkers.length ? (
+            <div className="chart-event-chips" aria-label="Events in the selected window; hover or select to highlight on the charts">
+              {chartEventMarkers.map(({ event }) => {
+                const isActive = highlightedEventId === event.id;
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    className={`chart-event-chip${isActive ? " chart-event-chip--active" : ""}`}
+                    aria-pressed={pinnedEventId === event.id}
+                    title={`${event.title} · ${formatDate(event.startDate)}${event.endDate ? ` - ${formatDate(event.endDate)}` : ""} · click to pin the marker`}
+                    onMouseEnter={() => setHoveredEventId(event.id)}
+                    onMouseLeave={() => setHoveredEventId(null)}
+                    onFocus={() => setHoveredEventId(event.id)}
+                    onBlur={() => setHoveredEventId(null)}
+                    onClick={() => setPinnedEventId((current) => (current === event.id ? null : event.id))}
+                  >
+                    <small>{formatShortDate(event.startDate)}</small>
+                    {event.title}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <span className="chart-events-bar__empty">No configured event markers fall inside the selected range.</span>
+          )
+        ) : null}
+      </div>
       <div className="research-grid">
         <article className="panel research-chart-panel research-chart-panel--wide">
           <div className="panel__header">
@@ -535,7 +597,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                 <YAxis tickLine={false} axisLine={false} width={50} domain={["dataMin - 0.35", "dataMax + 0.35"]} tickFormatter={(value) => `${Number(value).toFixed(1)}%`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
                 <Tooltip content={<MultiTooltip unit="yield" />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
                 <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ color: "var(--muted)" }} />
-                {chartEventMarkers.map(({ event, markerDate }) => <ReferenceLine key={event.id} x={markerDate} stroke="var(--event-line)" strokeDasharray="4 6" />)}
+                {renderEventReferenceLines()}
                 {maturityKeys.map((key) => <Line key={key} type="linear" dataKey={key} name={key} connectNulls={false} dot={false} stroke={yieldColors[key]} strokeWidth={key === "10Y" ? 2.4 : 1.8} isAnimationActive={false} />)}
               </LineChart>
             </ResponsiveContainer>
@@ -573,6 +635,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                 <YAxis tickLine={false} axisLine={false} width={66} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 11 }} />
                 <Tooltip content={<MultiTooltip unit="bps" />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
                 <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
+                {renderEventReferenceLines()}
                 <Area type="linear" dataKey={selectedSpread} name={selectedSpreadMeta?.label ?? selectedSpread} stroke={spreadColors[selectedSpread]} strokeWidth={2} fill="url(#spread-gradient)" dot={false} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
@@ -583,6 +646,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
           </div>
         </article>
       </div>
+      </>
     );
   };
 
