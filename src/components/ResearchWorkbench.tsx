@@ -18,6 +18,7 @@ import {
   Check,
   Download,
   ExternalLink,
+  Flag,
   Gauge,
   Focus,
   GitCompareArrows,
@@ -54,8 +55,12 @@ import {
 } from "../lib/research";
 import type { ResearchMaturityKey, SpreadKey, TreasuryPayload } from "../types";
 
-type WorkspaceTab = "snapshot" | "futures" | "comparison" | "history" | "regimes";
-type HistoryView = "charts" | "events" | "statistics";
+type WorkspaceTab = "snapshot" | "futures" | "comparison" | "history" | "events" | "regimes";
+type HistoryView = "charts" | "statistics";
+
+// The delayed-futures workspace is temporarily hidden from the UI. All futures
+// code paths stay intact; flip this to true to restore the tab.
+const SHOW_FUTURES_TAB = false;
 
 const rangePresets: Array<Exclude<RangePreset, "CUSTOM">> = ["1Y", "5Y", "10Y", "20Y", "MAX"];
 
@@ -63,13 +68,15 @@ const workspaceTabs: Array<{ id: WorkspaceTab; label: string; description: strin
   { id: "snapshot", label: "Market", description: "Official CMT", icon: ChartNoAxesCombined },
   { id: "futures", label: "Futures", description: "Intraday proxy", icon: Gauge },
   { id: "comparison", label: "Compare", description: "Date to date", icon: GitCompareArrows },
-  { id: "history", label: "History", description: "Rates and events", icon: History },
+  { id: "history", label: "History", description: "Rates and spreads", icon: History },
+  { id: "events", label: "Events", description: "Macro windows", icon: Flag },
   { id: "regimes", label: "Regimes", description: "Curve movement", icon: Layers3 }
 ];
 
+const visibleWorkspaceTabs = workspaceTabs.filter((tab) => tab.id !== "futures" || SHOW_FUTURES_TAB);
+
 const historyViews: Array<{ id: HistoryView; label: string }> = [
   { id: "charts", label: "Rates & spreads" },
-  { id: "events", label: "Event windows" },
   { id: "statistics", label: "Statistics" }
 ];
 
@@ -83,9 +90,10 @@ interface InitialWorkspaceState {
   regimeHorizon: CurveMoveHorizon;
   comparisonAsOf: string;
   comparisonReference: string;
+  comparisonReference2: string;
 }
 
-const workspaceStateQueryKeys = ["view", "range", "from", "to", "section", "spread", "pair", "interval", "asof", "ref"];
+const workspaceStateQueryKeys = ["view", "range", "from", "to", "section", "spread", "pair", "interval", "asof", "ref", "ref2"];
 
 const workspaceTabFromQuery: Record<string, WorkspaceTab> = {
   market: "snapshot",
@@ -95,6 +103,7 @@ const workspaceTabFromQuery: Record<string, WorkspaceTab> = {
   compare: "comparison",
   comparison: "comparison",
   history: "history",
+  events: "events",
   regimes: "regimes"
 };
 
@@ -103,6 +112,7 @@ const workspaceTabToQuery: Record<WorkspaceTab, string> = {
   futures: "futures",
   comparison: "compare",
   history: "history",
+  events: "events",
   regimes: "regimes"
 };
 
@@ -126,7 +136,8 @@ const readWorkspaceState = (): InitialWorkspaceState => {
       selectedPairKey: "10Y2Y",
       regimeHorizon: "1M",
       comparisonAsOf: "",
-      comparisonReference: ""
+      comparisonReference: "",
+      comparisonReference2: ""
     };
   }
 
@@ -140,17 +151,24 @@ const readWorkspaceState = (): InitialWorkspaceState => {
     : readAllowedValue<Exclude<RangePreset, "CUSTOM">>(rawPreset, rangePresets, "10Y");
   const pairKeys = curvePairs.map((pair) => pair.key);
   const interval = params.get("interval")?.toLowerCase();
+  const section = params.get("section")?.toLowerCase() ?? null;
+  const requestedTab = workspaceTabFromQuery[params.get("view")?.toLowerCase() ?? ""] ?? "snapshot";
+  const activeTab = !SHOW_FUTURES_TAB && requestedTab === "futures"
+    ? "snapshot"
+    // Older links exposed events as a History section; map them to the Events tab.
+    : requestedTab === "history" && section === "events" ? "events" : requestedTab;
 
   return {
-    activeTab: workspaceTabFromQuery[params.get("view")?.toLowerCase() ?? ""] ?? "snapshot",
-    historyView: readAllowedValue(params.get("section"), historyViews.map((view) => view.id), "charts"),
+    activeTab,
+    historyView: readAllowedValue(section, historyViews.map((view) => view.id), "charts"),
     preset,
     range: customRangeIsValid ? { start: from, end: to } : { start: "", end: "" },
     selectedSpread: readAllowedValue(params.get("spread")?.toUpperCase() ?? null, spreadKeys, "10Y2Y"),
     selectedPairKey: readAllowedValue(params.get("pair")?.toUpperCase() ?? null, pairKeys, "10Y2Y"),
     regimeHorizon: interval === "weekly" || interval === "1w" ? "1W" : "1M",
     comparisonAsOf: isIsoDate(params.get("asof")) ? params.get("asof") as string : "",
-    comparisonReference: isIsoDate(params.get("ref")) ? params.get("ref") as string : ""
+    comparisonReference: isIsoDate(params.get("ref")) ? params.get("ref") as string : "",
+    comparisonReference2: isIsoDate(params.get("ref2")) ? params.get("ref2") as string : ""
   };
 };
 
@@ -246,7 +264,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
   const [initialWorkspaceState] = useState(readWorkspaceState);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialWorkspaceState.activeTab);
   const [historyView, setHistoryView] = useState<HistoryView>(initialWorkspaceState.historyView);
-  const shouldLoadHistory = activeTab === "comparison" || activeTab === "history" || activeTab === "regimes";
+  const shouldLoadHistory = activeTab === "comparison" || activeTab === "history" || activeTab === "events" || activeTab === "regimes";
   const { data, error, isLoading } = useHistoricalYields(shouldLoadHistory);
   const [preset, setPreset] = useState<RangePreset>(initialWorkspaceState.preset);
   const [range, setRange] = useState(initialWorkspaceState.range);
@@ -255,6 +273,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
   const [regimeHorizon, setRegimeHorizon] = useState<CurveMoveHorizon>(initialWorkspaceState.regimeHorizon);
   const [comparisonAsOf, setComparisonAsOf] = useState(initialWorkspaceState.comparisonAsOf);
   const [comparisonReference, setComparisonReference] = useState(initialWorkspaceState.comparisonReference);
+  const [comparisonReference2, setComparisonReference2] = useState(initialWorkspaceState.comparisonReference2);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
   useEffect(() => {
@@ -266,6 +285,9 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     const normalizedReference = comparisonReference >= firstDate && comparisonReference < normalizedAsOf
       ? comparisonReference
       : defaultReference < firstDate ? firstDate : defaultReference;
+    const normalizedReference2 = comparisonReference2 && comparisonReference2 >= firstDate && comparisonReference2 < normalizedAsOf
+      ? comparisonReference2
+      : "";
 
     if (preset === "CUSTOM" && range.start && range.end) {
       const normalizedStart = range.start < firstDate ? firstDate : range.start;
@@ -283,7 +305,8 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     }
     if (comparisonAsOf !== normalizedAsOf) setComparisonAsOf(normalizedAsOf);
     if (comparisonReference !== normalizedReference) setComparisonReference(normalizedReference);
-  }, [comparisonAsOf, comparisonReference, data?.rows, preset, range.end, range.start]);
+    if (comparisonReference2 !== normalizedReference2) setComparisonReference2(normalizedReference2);
+  }, [comparisonAsOf, comparisonReference, comparisonReference2, data?.rows, preset, range.end, range.start]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -291,7 +314,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
 
     if (activeTab !== "snapshot") url.searchParams.set("view", workspaceTabToQuery[activeTab]);
 
-    if (activeTab === "comparison" || activeTab === "history" || activeTab === "regimes") {
+    if (activeTab === "comparison" || activeTab === "history" || activeTab === "events" || activeTab === "regimes") {
       if (preset === "CUSTOM" && range.start && range.end) {
         url.searchParams.set("range", "custom");
         url.searchParams.set("from", range.start);
@@ -314,6 +337,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     if (activeTab === "comparison") {
       if (comparisonAsOf) url.searchParams.set("asof", comparisonAsOf);
       if (comparisonReference) url.searchParams.set("ref", comparisonReference);
+      if (comparisonReference2) url.searchParams.set("ref2", comparisonReference2);
     }
 
     const nextUrl = `${url.pathname}${url.search}${url.hash}`;
@@ -322,7 +346,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     document.title = activeTab === "snapshot"
       ? "U.S. Treasury Rates Monitor"
       : `${activeLabel} · U.S. Treasury Rates Monitor`;
-  }, [activeTab, comparisonAsOf, comparisonReference, historyView, preset, range.end, range.start, regimeHorizon, selectedPairKey, selectedSpread]);
+  }, [activeTab, comparisonAsOf, comparisonReference, comparisonReference2, historyView, preset, range.end, range.start, regimeHorizon, selectedPairKey, selectedSpread]);
 
   useEffect(() => {
     if (copyStatus === "idle") return undefined;
@@ -372,6 +396,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
     if (!data?.rows.length) return;
     setPreset("CUSTOM");
     setRange(getEventFocusRange(event, data.rows));
+    setActiveTab("history");
     setHistoryView("charts");
   };
 
@@ -400,7 +425,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
   };
 
   const handleWorkspaceTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab) => {
-    const next = getAdjacentTab(workspaceTabs.map((tab) => tab.id), current, event.key);
+    const next = getAdjacentTab(visibleWorkspaceTabs.map((tab) => tab.id), current, event.key);
     if (!next) return;
 
     event.preventDefault();
@@ -625,7 +650,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
   return (
     <section className="workspace-shell" aria-label="Treasury research workspace">
       <div className="workspace-tabs" role="tablist" aria-label="Treasury dashboard views" aria-orientation="horizontal">
-        {workspaceTabs.map((tab) => {
+        {visibleWorkspaceTabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
@@ -647,7 +672,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
           );
         })}
       </div>
-      {workspaceTabs
+      {visibleWorkspaceTabs
         .filter((tab) => tab.id !== activeTab)
         .map((tab) => <div key={tab.id} id={`workspace-panel-${tab.id}`} role="tabpanel" aria-labelledby={`workspace-tab-${tab.id}`} hidden />)}
 
@@ -674,8 +699,8 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
           <div className="research-header research-header--workspace">
             <div>
               <p className="eyebrow">Macro research layer</p>
-              <h2>{activeTab === "comparison" ? "Historical Yield Curve Comparison" : activeTab === "regimes" ? "Curve Movement Regimes" : "Historical Treasury Regime Analysis"}</h2>
-              <p>{activeTab === "comparison" ? "Compare complete Treasury curves from any two official business-day observations." : activeTab === "regimes" ? "Date-to-date two-tenor decomposition with ex-post classifications of completed calendar periods." : "Analyze rates, spreads, sourced event annotations, and statistical behavior without leaving the workspace."}</p>
+              <h2>{activeTab === "comparison" ? "Historical Yield Curve Comparison" : activeTab === "regimes" ? "Curve Movement Regimes" : activeTab === "events" ? "Macro Event Windows" : "Historical Treasury Regime Analysis"}</h2>
+              <p>{activeTab === "comparison" ? "Compare complete Treasury curves from up to three official business-day observations." : activeTab === "regimes" ? "Date-to-date two-tenor decomposition with ex-post classifications of completed calendar periods." : activeTab === "events" ? "Sourced macro and methodology markers inside the selected range. Focus any event to open it in the rates charts." : "Analyze rates, spreads, and statistical behavior without leaving the workspace."}</p>
             </div>
             <div className="research-source">
               <span>History: {formatDate(data.source.recordStartDate)} - {formatDate(data.source.recordEndDate)}</span>
@@ -699,11 +724,13 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                 <span>Reference window</span>
                 {(["1W", "1M", "1Y", "RANGE"] as const).map((item) => <button key={item} type="button" onClick={() => setComparisonHorizon(item)}>{item === "RANGE" ? "Range start" : item}</button>)}
               </div>
-              <YieldCurveComparison rows={data.rows} asOfDate={comparisonAsOf} referenceDate={comparisonReference} onAsOfDateChange={setComparisonAsOfDate} onReferenceDateChange={setComparisonReference} />
+              <YieldCurveComparison rows={data.rows} asOfDate={comparisonAsOf} referenceDate={comparisonReference} secondReferenceDate={comparisonReference2} onAsOfDateChange={setComparisonAsOfDate} onReferenceDateChange={setComparisonReference} onSecondReferenceDateChange={setComparisonReference2} />
             </>
           ) : null}
 
-          {activeTab === "history" || activeTab === "regimes" ? renderResearchControls() : null}
+          {activeTab === "history" || activeTab === "events" || activeTab === "regimes" ? renderResearchControls() : null}
+
+          {activeTab === "events" ? renderEvents() : null}
 
           {activeTab === "history" ? (
             <>
@@ -729,7 +756,7 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                 .filter((view) => view.id !== historyView)
                 .map((view) => <div key={view.id} id={`history-view-panel-${view.id}`} role="tabpanel" aria-labelledby={`history-view-tab-${view.id}`} hidden />)}
               <div id={`history-view-panel-${historyView}`} role="tabpanel" aria-labelledby={`history-view-tab-${historyView}`} tabIndex={0}>
-                {historyView === "charts" ? renderHistoryCharts() : historyView === "events" ? renderEvents() : renderStatistics()}
+                {historyView === "charts" ? renderHistoryCharts() : renderStatistics()}
               </div>
             </>
           ) : null}

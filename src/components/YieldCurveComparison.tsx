@@ -1,7 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -9,7 +8,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { CalendarRange, Info } from "lucide-react";
+import { CalendarRange, Info, X } from "lucide-react";
 import { formatBps, formatDate, formatYield } from "../lib/format";
 import { findCompleteCurveObservationOnOrBefore, maturityKeys } from "../lib/research";
 import type { HistoricalRow } from "../types";
@@ -18,9 +17,19 @@ interface YieldCurveComparisonProps {
   rows: HistoricalRow[];
   asOfDate: string;
   referenceDate: string;
+  secondReferenceDate: string;
   onAsOfDateChange: (value: string) => void;
   onReferenceDateChange: (value: string) => void;
+  onSecondReferenceDateChange: (value: string) => void;
 }
+
+type ComparisonSeriesKey = "asOf" | "reference" | "reference2";
+
+const seriesColors: Record<ComparisonSeriesKey, string> = {
+  asOf: "var(--comparison-current)",
+  reference: "var(--comparison-reference)",
+  reference2: "var(--comparison-secondary)"
+};
 
 interface ComparisonTooltipProps {
   active?: boolean;
@@ -53,9 +62,13 @@ export function YieldCurveComparison({
   rows,
   asOfDate,
   referenceDate,
+  secondReferenceDate,
   onAsOfDateChange,
-  onReferenceDateChange
+  onReferenceDateChange,
+  onSecondReferenceDateChange
 }: YieldCurveComparisonProps) {
+  const [hiddenSeries, setHiddenSeries] = useState<Partial<Record<ComparisonSeriesKey, boolean>>>({});
+
   const asOfRow = useMemo(
     () => (asOfDate ? findCompleteCurveObservationOnOrBefore(rows, asOfDate) : null),
     [asOfDate, rows]
@@ -63,6 +76,15 @@ export function YieldCurveComparison({
   const referenceRow = useMemo(
     () => (referenceDate ? findCompleteCurveObservationOnOrBefore(rows, referenceDate) : null),
     [referenceDate, rows]
+  );
+  const secondReferenceRow = useMemo(
+    () => (secondReferenceDate ? findCompleteCurveObservationOnOrBefore(rows, secondReferenceDate) : null),
+    [rows, secondReferenceDate]
+  );
+
+  const canCompare = Boolean(asOfRow && referenceRow && referenceRow.date < asOfRow.date);
+  const hasSecondReference = Boolean(
+    canCompare && secondReferenceRow && asOfRow && secondReferenceRow.date < asOfRow.date
   );
 
   const comparisonData = useMemo(() => {
@@ -72,18 +94,31 @@ export function YieldCurveComparison({
       maturity: key,
       asOf: asOfRow[key] as number,
       reference: referenceRow[key] as number,
-      changeBps: ((asOfRow[key] as number) - (referenceRow[key] as number)) * 100
+      changeBps: ((asOfRow[key] as number) - (referenceRow[key] as number)) * 100,
+      ...(hasSecondReference && secondReferenceRow
+        ? {
+            reference2: secondReferenceRow[key] as number,
+            changeBps2: ((asOfRow[key] as number) - (secondReferenceRow[key] as number)) * 100
+          }
+        : {})
     }));
-  }, [asOfRow, referenceRow]);
+  }, [asOfRow, hasSecondReference, referenceRow, secondReferenceRow]);
 
-  const canCompare = Boolean(asOfRow && referenceRow && referenceRow.date < asOfRow.date);
+  const toggleSeries = (key: ComparisonSeriesKey) =>
+    setHiddenSeries((current) => ({ ...current, [key]: !current[key] }));
+
+  const legendItems: Array<{ key: ComparisonSeriesKey; label: string }> = [
+    { key: "reference", label: formatDate(referenceRow?.date) },
+    ...(hasSecondReference ? [{ key: "reference2" as const, label: formatDate(secondReferenceRow?.date) }] : []),
+    { key: "asOf", label: formatDate(asOfRow?.date) }
+  ];
 
   return (
     <article className="panel curve-comparison-panel">
       <div className="panel__header">
         <div>
           <p className="eyebrow">Yield curve comparison</p>
-          <h3>Compare Any Two Historical Curves</h3>
+          <h3>Compare Up To Three Historical Curves</h3>
         </div>
         <span className="panel__meta">Nearest prior official business-day observation is used</span>
       </div>
@@ -105,6 +140,23 @@ export function YieldCurveComparison({
             onInput={(event) => onReferenceDateChange(event.currentTarget.value)}
           />
         </label>
+        <label>
+          <span>Reference 2 · optional</span>
+          <input
+            type="date"
+            value={secondReferenceDate}
+            min={rows[0]?.date}
+            max={asOfDate || rows.at(-1)?.date}
+            onChange={(event) => onSecondReferenceDateChange(event.target.value)}
+            onInput={(event) => onSecondReferenceDateChange(event.currentTarget.value)}
+          />
+        </label>
+        {secondReferenceDate ? (
+          <button className="text-button" type="button" onClick={() => onSecondReferenceDateChange("")}>
+            <X size={14} aria-hidden="true" />
+            Clear 2nd
+          </button>
+        ) : null}
       </div>
 
       {canCompare ? (
@@ -112,6 +164,26 @@ export function YieldCurveComparison({
           <div className="comparison-dates">
             <span>As of observed: <strong>{formatDate(asOfRow?.date)}</strong></span>
             <span>Reference observed: <strong>{formatDate(referenceRow?.date)}</strong></span>
+            {hasSecondReference ? <span>Reference 2 observed: <strong>{formatDate(secondReferenceRow?.date)}</strong></span> : null}
+          </div>
+          <div className="comparison-legend" role="group" aria-label="Toggle curve visibility">
+            {legendItems.map((item) => {
+              const isHidden = Boolean(hiddenSeries[item.key]);
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={isHidden ? "comparison-legend__item comparison-legend__item--hidden" : "comparison-legend__item"}
+                  aria-pressed={!isHidden}
+                  title={isHidden ? `Show the ${item.label} curve` : `Hide the ${item.label} curve`}
+                  onClick={() => toggleSeries(item.key)}
+                >
+                  <i style={{ backgroundColor: seriesColors[item.key] }} aria-hidden="true" />
+                  {item.label}
+                </button>
+              );
+            })}
+            <span className="comparison-legend__hint">Click a legend entry to show or hide that curve.</span>
           </div>
           <div className="comparison-chart">
             <ResponsiveContainer width="100%" height="100%">
@@ -127,24 +199,38 @@ export function YieldCurveComparison({
                   tick={{ fill: "var(--muted)", fontSize: 12 }}
                 />
                 <Tooltip content={<ComparisonTooltip />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
-                <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ color: "var(--muted)" }} />
                 <Line
                   type="linear"
                   dataKey="reference"
                   name={formatDate(referenceRow?.date)}
-                  stroke="var(--comparison-reference)"
+                  hide={Boolean(hiddenSeries.reference)}
+                  stroke={seriesColors.reference}
                   strokeWidth={2}
                   strokeDasharray="5 4"
-                  dot={{ r: 3, strokeWidth: 1, fill: "var(--comparison-reference)" }}
+                  dot={{ r: 3, strokeWidth: 1, fill: seriesColors.reference }}
                   isAnimationActive={false}
                 />
+                {hasSecondReference ? (
+                  <Line
+                    type="linear"
+                    dataKey="reference2"
+                    name={formatDate(secondReferenceRow?.date)}
+                    hide={Boolean(hiddenSeries.reference2)}
+                    stroke={seriesColors.reference2}
+                    strokeWidth={2}
+                    strokeDasharray="2 4"
+                    dot={{ r: 3, strokeWidth: 1, fill: seriesColors.reference2 }}
+                    isAnimationActive={false}
+                  />
+                ) : null}
                 <Line
                   type="linear"
                   dataKey="asOf"
                   name={formatDate(asOfRow?.date)}
-                  stroke="var(--comparison-current)"
+                  hide={Boolean(hiddenSeries.asOf)}
+                  stroke={seriesColors.asOf}
                   strokeWidth={2.6}
-                  dot={{ r: 3.5, strokeWidth: 1, fill: "var(--comparison-current)" }}
+                  dot={{ r: 3.5, strokeWidth: 1, fill: seriesColors.asOf }}
                   isAnimationActive={false}
                 />
               </LineChart>
@@ -152,9 +238,20 @@ export function YieldCurveComparison({
           </div>
           <div className="comparison-delta-grid" aria-label="Yield changes by maturity">
             {comparisonData.map((point) => (
-              <div key={point.maturity} className="comparison-delta">
+              <div key={point.maturity} className={hasSecondReference ? "comparison-delta comparison-delta--stacked" : "comparison-delta"}>
                 <span>{point.maturity}</span>
-                <strong>{formatBps(point.changeBps)}</strong>
+                <div className="comparison-delta__values">
+                  <div>
+                    <strong>{formatBps(point.changeBps)}</strong>
+                    {hasSecondReference ? <small>vs {formatDate(referenceRow?.date)}</small> : null}
+                  </div>
+                  {hasSecondReference ? (
+                    <div>
+                      <strong className="comparison-delta__secondary">{formatBps(point.changeBps2)}</strong>
+                      <small>vs {formatDate(secondReferenceRow?.date)}</small>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>

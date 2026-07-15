@@ -8,7 +8,7 @@ import {
   YAxis
 } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
-import { formatDate, formatYield } from "../lib/format";
+import { formatDate } from "../lib/format";
 import type { CurvePoint } from "../types";
 
 interface YieldCurveChartProps {
@@ -40,8 +40,6 @@ function CurveDot({ cx, cy, payload }: CurveDotProps) {
 }
 
 export function YieldCurveChart({ data, recordDate }: YieldCurveChartProps) {
-  const highlighted = data.filter((point) => point.highlighted);
-
   return (
     <div className="panel panel--curve">
       <div className="panel__header">
@@ -82,14 +80,6 @@ export function YieldCurveChart({ data, recordDate }: YieldCurveChartProps) {
             />
           </ComposedChart>
         </ResponsiveContainer>
-      </div>
-      <div className="curve-points" aria-label="Highlighted maturities">
-        {highlighted.map((point) => (
-          <div className="curve-points__item" key={point.key}>
-            <span>{point.shortLabel}</span>
-            <strong>{formatYield(point.value)}</strong>
-          </div>
-        ))}
       </div>
     </div>
   );
