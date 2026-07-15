@@ -535,51 +535,55 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
         })
       : [];
 
+  const renderEventMarkerControls = () => (
+    <div className="chart-events-bar">
+      <button
+        className="chart-events-toggle"
+        type="button"
+        aria-pressed={showEventMarkers}
+        onClick={() => setShowEventMarkers((current) => !current)}
+        title="Show or hide sourced event markers on the charts"
+      >
+        <Flag size={14} aria-hidden="true" />
+        Event markers {showEventMarkers ? "on" : "off"}
+      </button>
+      {showEventMarkers ? (
+        chartEventMarkers.length ? (
+          <div className="chart-event-chips" aria-label="Events in the selected window; hover or select to highlight on the charts">
+            {chartEventMarkers.map(({ event }) => {
+              const isActive = highlightedEventId === event.id;
+              return (
+                <button
+                  key={event.id}
+                  type="button"
+                  className={`chart-event-chip${isActive ? " chart-event-chip--active" : ""}`}
+                  aria-pressed={pinnedEventId === event.id}
+                  title={`${event.title} · ${formatDate(event.startDate)}${event.endDate ? ` - ${formatDate(event.endDate)}` : ""} · click to pin the marker`}
+                  onMouseEnter={() => setHoveredEventId(event.id)}
+                  onMouseLeave={() => setHoveredEventId(null)}
+                  onFocus={() => setHoveredEventId(event.id)}
+                  onBlur={() => setHoveredEventId(null)}
+                  onClick={() => setPinnedEventId((current) => (current === event.id ? null : event.id))}
+                >
+                  <small>{formatShortDate(event.startDate)}</small>
+                  {event.title}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <span className="chart-events-bar__empty">No configured event markers fall inside the selected range.</span>
+        )
+      ) : null}
+    </div>
+  );
+
   const renderHistoryCharts = () => {
     if (!selectedRows.length) return <div className="empty-state">No valid Treasury observations are available inside the selected date window.</div>;
 
     return (
       <>
-      <div className="chart-events-bar">
-        <button
-          className="chart-events-toggle"
-          type="button"
-          aria-pressed={showEventMarkers}
-          onClick={() => setShowEventMarkers((current) => !current)}
-          title="Show or hide sourced event markers on the charts"
-        >
-          <Flag size={14} aria-hidden="true" />
-          Event markers {showEventMarkers ? "on" : "off"}
-        </button>
-        {showEventMarkers ? (
-          chartEventMarkers.length ? (
-            <div className="chart-event-chips" aria-label="Events in the selected window; hover or select to highlight on the charts">
-              {chartEventMarkers.map(({ event }) => {
-                const isActive = highlightedEventId === event.id;
-                return (
-                  <button
-                    key={event.id}
-                    type="button"
-                    className={`chart-event-chip${isActive ? " chart-event-chip--active" : ""}`}
-                    aria-pressed={pinnedEventId === event.id}
-                    title={`${event.title} · ${formatDate(event.startDate)}${event.endDate ? ` - ${formatDate(event.endDate)}` : ""} · click to pin the marker`}
-                    onMouseEnter={() => setHoveredEventId(event.id)}
-                    onMouseLeave={() => setHoveredEventId(null)}
-                    onFocus={() => setHoveredEventId(event.id)}
-                    onBlur={() => setHoveredEventId(null)}
-                    onClick={() => setPinnedEventId((current) => (current === event.id ? null : event.id))}
-                  >
-                    <small>{formatShortDate(event.startDate)}</small>
-                    {event.title}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <span className="chart-events-bar__empty">No configured event markers fall inside the selected range.</span>
-          )
-        ) : null}
-      </div>
+      {renderEventMarkerControls()}
       <div className="research-grid">
         <article className="panel research-chart-panel research-chart-panel--wide">
           <div className="panel__header">
@@ -841,7 +845,8 @@ export function ResearchWorkbench({ currentData, currentLoading, currentError }:
                   </div>
                 </div>
               </div>
-              {range.start && range.end ? <CurveRegimeTimeline rows={data.rows} pair={selectedPair} startDate={range.start} endDate={range.end} horizon={regimeHorizon} /> : <div className="empty-state">Select a date range to map curve movement.</div>}
+              {renderEventMarkerControls()}
+              {range.start && range.end ? <CurveRegimeTimeline rows={data.rows} pair={selectedPair} startDate={range.start} endDate={range.end} horizon={regimeHorizon} eventMarkers={showEventMarkers ? chartEventMarkers : []} highlightedEventId={highlightedEventId} /> : <div className="empty-state">Select a date range to map curve movement.</div>}
             </>
           ) : null}
         </div>

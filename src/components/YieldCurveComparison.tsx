@@ -3,6 +3,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -51,6 +52,14 @@ const regimeColors: Record<CurveMoveClassification, string> = {
 // Date-to-date comparisons reuse the project's tightest disclosed slope
 // tolerance so a trivial slope move is not labelled a steepener/flattener.
 const comparisonToleranceBps = curveMoveShapeToleranceBps["1W"];
+
+// Adjacent-tenor chart bands; the three non-adjacent segments stay in the
+// classification cards below the chart.
+const adjacentSegments = [
+  { x1: "2Y", x2: "5Y", pairKey: "5Y2Y" },
+  { x1: "5Y", x2: "10Y", pairKey: "10Y5Y" },
+  { x1: "10Y", x2: "30Y", pairKey: "30Y10Y" }
+] as const;
 
 interface ComparisonTooltipProps {
   active?: boolean;
@@ -240,7 +249,10 @@ export function YieldCurveComparison({
                 </button>
               );
             })}
-            <span className="comparison-legend__hint">Click a legend entry to show or hide that curve.</span>
+            <span className="comparison-legend__hint">
+              Click a legend entry to show or hide that curve.
+              {moveBlocks[0] ? ` Shaded bands classify each adjacent segment vs ${formatDate(moveBlocks[0].referenceDate)}.` : ""}
+            </span>
           </div>
           <div className="comparison-chart">
             <ResponsiveContainer width="100%" height="100%">
@@ -256,6 +268,32 @@ export function YieldCurveComparison({
                   tick={{ fill: "var(--muted)", fontSize: 12 }}
                 />
                 <Tooltip content={<ComparisonTooltip />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
+                {moveBlocks[0]
+                  ? adjacentSegments.map((segment) => {
+                      const move = moveBlocks[0].moves.find((entry) => entry.pair.key === segment.pairKey)?.move;
+                      if (!move) return null;
+                      return (
+                        <ReferenceArea
+                          key={segment.pairKey}
+                          x1={segment.x1}
+                          x2={segment.x2}
+                          fill={regimeColors[move.type]}
+                          fillOpacity={0.055}
+                          stroke={regimeColors[move.type]}
+                          strokeOpacity={0.3}
+                          strokeDasharray="3 5"
+                          ifOverflow="hidden"
+                          label={{
+                            value: move.type,
+                            position: "insideTop",
+                            fill: regimeColors[move.type],
+                            fontSize: 10.5,
+                            fontWeight: 700
+                          }}
+                        />
+                      );
+                    })
+                  : null}
                 <Line
                   type="linear"
                   dataKey="reference"

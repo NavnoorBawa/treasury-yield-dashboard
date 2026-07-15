@@ -25,9 +25,15 @@ import {
   type CurveMoveHorizon,
   type CurveMoveType,
   type CurvePair,
-  type CurveRegimePoint
+  type CurveRegimePoint,
+  type MacroEvent
 } from "../lib/research";
 import type { HistoricalRow } from "../types";
+
+interface ChartEventMarker {
+  event: MacroEvent;
+  markerDate: string;
+}
 
 interface CurveRegimeTimelineProps {
   rows: HistoricalRow[];
@@ -35,6 +41,8 @@ interface CurveRegimeTimelineProps {
   startDate: string;
   endDate: string;
   horizon: CurveMoveHorizon;
+  eventMarkers?: ChartEventMarker[];
+  highlightedEventId?: string | null;
 }
 
 interface SpreadChartPoint {
@@ -282,7 +290,7 @@ const setRegimePreview = (control: HTMLButtonElement, type: CurveMoveType | null
   else delete panel.dataset.hoverRegime;
 };
 
-export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }: CurveRegimeTimelineProps) {
+export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon, eventMarkers = [], highlightedEventId = null }: CurveRegimeTimelineProps) {
   const [slopeToleranceBps, setSlopeToleranceBps] = useState(curveMoveShapeToleranceBps[horizon]);
   const timeline = useMemo(
     () => buildCurveRegimeTimeline(rows, pair, startDate, endDate, horizon, slopeToleranceBps),
@@ -574,6 +582,19 @@ export function CurveRegimeTimeline({ rows, pair, startDate, endDate, horizon }:
             <YAxis tickLine={false} axisLine={false} width={76} tickFormatter={(value) => `${Number(value).toFixed(0)} bps`} tick={{ fill: "var(--muted)", fontSize: 12 }} />
             <Tooltip content={<SpreadTooltip selectedWindow={selectedWindow} />} cursor={{ stroke: "var(--chart-crosshair)", strokeWidth: 1, strokeDasharray: "3 4" }} />
             <ReferenceLine y={0} stroke="var(--zero-line)" strokeDasharray="4 5" />
+            {eventMarkers.map(({ event, markerDate }) => {
+              const isHighlighted = highlightedEventId === event.id;
+              return (
+                <ReferenceLine
+                  key={`event-${event.id}`}
+                  x={markerDate}
+                  stroke={isHighlighted ? "var(--chart-highlight)" : "var(--event-line)"}
+                  strokeWidth={isHighlighted ? 2 : 1}
+                  strokeDasharray="4 6"
+                  label={isHighlighted ? { value: event.title, position: "insideTopLeft", fill: "var(--ink)", fontSize: 11 } : undefined}
+                />
+              );
+            })}
             {analysisMove && analysisAsOf ? (
               <ReferenceArea
                 x1={analysisMove.comparisonDate}
